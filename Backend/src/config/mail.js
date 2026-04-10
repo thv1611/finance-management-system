@@ -29,7 +29,26 @@ async function sendOtpEmail(to, otpCode) {
   }
 }
 
+async function sendPasswordResetOtpEmail(to, otpCode) {
+  const subject = "Your SYM Password Reset Code";
+  const text = `Use this SYM password reset code: ${otpCode}. It will expire in ${env.otp.expiresMinutes} minutes.`;
+
+  try {
+    await transporter.sendMail({
+      from: env.mail.from,
+      to,
+      subject,
+      text,
+    });
+    console.log(`Password reset email sent to ${to}`);
+  } catch (error) {
+    console.log("Mail sending failed, fallback to console log.");
+    console.log(`Password reset OTP for ${to}: ${otpCode}`);
+  }
+}
+
 module.exports = {
   transporter,
   sendOtpEmail,
+  sendPasswordResetOtpEmail,
 };

@@ -1,11 +1,13 @@
 const app = require("./app");
 const pool = require("./db/connection");
 const env = require("./config/env");
+const { initializeDatabase } = require("./db/init");
 
 async function startServer() {
   try {
+    await initializeDatabase(pool);
     const connection = await pool.getConnection();
-    console.log("Database connected successfully");
+    console.log("Database connected and initialized successfully");
     connection.release();
 
     app.listen(env.port, () => {
