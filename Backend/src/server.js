@@ -6,7 +6,7 @@ const { initializeDatabase } = require("./db/init");
 async function startServer() {
   try {
     await initializeDatabase(pool);
-    const connection = await pool.getConnection();
+    const connection = await pool.connect();
     console.log("Database connected and initialized successfully");
     connection.release();
 

@@ -4,7 +4,7 @@ const env = require("./env");
 const transporter = nodemailer.createTransport({
   host: env.mail.host,
   port: Number(env.mail.port),
-  secure: false,
+  secure: Number(env.mail.port) === 465,
   auth: {
     user: env.mail.user,
     pass: env.mail.pass,
@@ -24,8 +24,8 @@ async function sendOtpEmail(to, otpCode) {
     });
     console.log(`OTP email sent to ${to}`);
   } catch (error) {
-    console.log("Mail sending failed, fallback to console log.");
-    console.log(`OTP for ${to}: ${otpCode}`);
+    error.message = `Failed to send OTP email: ${error.message}`;
+    throw error;
   }
 }
 
@@ -42,8 +42,8 @@ async function sendPasswordResetOtpEmail(to, otpCode) {
     });
     console.log(`Password reset email sent to ${to}`);
   } catch (error) {
-    console.log("Mail sending failed, fallback to console log.");
-    console.log(`Password reset OTP for ${to}: ${otpCode}`);
+    error.message = `Failed to send password reset email: ${error.message}`;
+    throw error;
   }
 }
 

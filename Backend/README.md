@@ -2,29 +2,39 @@
 
 ## 1. Configure environment variables
 
-Copy `Backend/.env.example` to `Backend/.env` and update the MySQL credentials:
+Create `Backend/.env` and set either a PostgreSQL `DATABASE_URL` or the individual DB fields.
 
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_NAME`
+For Neon, prefer:
 
-## 2. Start MySQL
+- `DATABASE_URL`
 
-Make sure your MySQL server is running and the user in `.env` has permission to create databases and tables.
+You still need the non-database variables:
+
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USER`
+- `MAIL_PASS`
+- `MAIL_FROM`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `JWT_ACCESS_EXPIRES`
+- `JWT_REFRESH_EXPIRES`
+
+## 2. Install dependencies
+
+```bash
+npm install
+```
 
 ## 3. Run the backend
 
 ```bash
-npm install
 npm run dev
 ```
 
 When the server starts, it will:
 
-- connect to MySQL
-- create the database in `DB_NAME` if it does not exist
+- connect to PostgreSQL
 - create the required tables from `src/db/schema.sql`
 
-If startup fails, check your `.env` values and MySQL permissions first.
+If startup fails, check your `.env` values and database permissions first.

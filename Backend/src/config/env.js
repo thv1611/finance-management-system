@@ -3,11 +3,6 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const requiredEnvKeys = [
-  "DB_HOST",
-  "DB_PORT",
-  "DB_USER",
-  "DB_PASSWORD",
-  "DB_NAME",
   "MAIL_HOST",
   "MAIL_PORT",
   "MAIL_USER",
@@ -19,7 +14,14 @@ const requiredEnvKeys = [
   "JWT_REFRESH_EXPIRES",
 ];
 
-const missingEnvKeys = requiredEnvKeys.filter((key) => !process.env[key]);
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const databaseConfigKeys = hasDatabaseUrl
+  ? []
+  : ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
+
+const missingEnvKeys = [...databaseConfigKeys, ...requiredEnvKeys].filter(
+  (key) => !process.env[key]
+);
 
 if (missingEnvKeys.length > 0) {
   throw new Error(
@@ -30,6 +32,7 @@ if (missingEnvKeys.length > 0) {
 module.exports = {
   port: process.env.PORT || 5000,
   db: {
+    connectionString: process.env.DATABASE_URL || "",
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT),
     user: process.env.DB_USER,

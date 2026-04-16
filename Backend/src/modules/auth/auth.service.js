@@ -377,6 +377,23 @@ async function googleAuth(payload) {
   const existingGoogleUser = await authRepository.findUserByGoogleId(profile.googleId);
   const existingEmailUser = await authRepository.findUserByEmail(profile.email);
 
+  async function linkExistingLocalUser(user) {
+    await authRepository.linkGoogleAccount(
+      user.id,
+      profile.googleId,
+      profile.avatarUrl
+    );
+
+    const linkedUser = await authRepository.findUserByEmail(profile.email);
+    const authData = await issueAuthTokens(linkedUser);
+
+    return {
+      ...authData,
+      message: "Google account linked successfully.",
+      is_new_user: false,
+    };
+  }
+
   if (mode === "register") {
     if (existingGoogleUser) {
       const authData = await issueAuthTokens(existingGoogleUser);
@@ -388,11 +405,11 @@ async function googleAuth(payload) {
     }
 
     if (existingEmailUser) {
-      const error = new Error(
-        existingEmailUser.auth_provider === "google"
-          ? "This Google account is already registered. Try signing in instead."
-          : "An account with this email already exists. Sign in with your password instead."
-      );
+      if (existingEmailUser.auth_provider !== "google" && !existingEmailUser.google_id) {
+        return linkExistingLocalUser(existingEmailUser);
+      }
+
+      const error = new Error("This Google account is already registered. Try signing in instead.");
       error.statusCode = 409;
       throw error;
     }
@@ -417,10 +434,14 @@ async function googleAuth(payload) {
 
   if (!existingGoogleUser) {
     if (existingEmailUser && existingEmailUser.auth_provider !== "google") {
+      if (!existingEmailUser.google_id) {
+        return linkExistingLocalUser(existingEmailUser);
+      }
+
       const error = new Error(
-        "This email is registered with password sign-in. Use your email and password instead."
+        "This email is already linked to another Google account."
       );
-      error.statusCode = 400;
+      error.statusCode = 409;
       throw error;
     }
 
