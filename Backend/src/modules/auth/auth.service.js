@@ -9,6 +9,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
   decodeJwtExpiry,
+  verifyRefreshToken,
 } = require("../../utils/token");
 
 function getGoogleClient() {
@@ -263,6 +264,47 @@ async function login(payload) {
   return issueAuthTokens(user);
 }
 
+async function refreshAccessToken(payload) {
+  const { refresh_token: refreshToken } = payload;
+
+  let decodedPayload;
+
+  try {
+    decodedPayload = verifyRefreshToken(refreshToken);
+  } catch (error) {
+    const authError = new Error("Invalid or expired refresh token");
+    authError.statusCode = 401;
+    throw authError;
+  }
+
+  const storedToken = await authRepository.findRefreshToken(refreshToken);
+
+  if (!storedToken || storedToken.is_revoked) {
+    const error = new Error("Refresh token is no longer valid");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  if (new Date(storedToken.expires_at) < new Date()) {
+    await authRepository.revokeRefreshToken(refreshToken);
+    const error = new Error("Refresh token has expired");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const user = await authRepository.findUserById(decodedPayload.userId);
+
+  if (!user) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  await authRepository.revokeRefreshToken(refreshToken);
+
+  return issueAuthTokens(user);
+}
+
 async function forgotPassword(payload) {
   const { email } = payload;
   const user = await authRepository.findUserByEmail(email);
@@ -465,6 +507,7 @@ module.exports = {
   verifyOtp,
   resendVerificationOtp,
   login,
+  refreshAccessToken,
   forgotPassword,
   verifyPasswordResetOtp,
   resetPassword,

@@ -37,6 +37,15 @@ async function loginController(req, res, next) {
   }
 }
 
+async function refreshAccessTokenController(req, res, next) {
+  try {
+    const result = await authService.refreshAccessToken(req.body);
+    return successResponse(res, "Token refreshed successfully", result, 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function forgotPasswordController(req, res, next) {
   try {
     const result = await authService.forgotPassword(req.body);
@@ -78,6 +87,7 @@ module.exports = {
   verifyOtpController,
   resendVerificationOtpController,
   loginController,
+  refreshAccessTokenController,
   forgotPasswordController,
   verifyPasswordResetOtpController,
   resetPasswordController,

@@ -1,24 +1,23 @@
-export function TextInput({ value, prefix, ...props }) {
+export function TextInput({ value, prefix, className = "", ...props }) {
   return (
     <div className="flex h-12 items-center rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition focus-within:border-[#8fd8cd] focus-within:bg-white">
       {prefix && <span className="mr-1 text-lg font-black text-[#6f7c88]">{prefix}</span>}
       <input
         value={value}
-        readOnly
-        className="h-12 w-full bg-transparent text-sm font-bold text-[#25313b] outline-none"
+        className={`h-12 w-full bg-transparent text-sm font-bold text-[#25313b] outline-none ${className}`}
         {...props}
       />
     </div>
   );
 }
 
-export function SelectInput({ value, children }) {
+export function SelectInput({ value, children, className = "", ...props }) {
   return (
     <div className="relative">
       <select
         value={value}
-        onChange={() => {}}
-        className="h-12 w-full appearance-none rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 pr-10 text-sm font-bold text-[#25313b] outline-none transition focus:border-[#8fd8cd] focus:bg-white"
+        className={`h-12 w-full appearance-none rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 pr-10 text-sm font-bold text-[#25313b] outline-none transition focus:border-[#8fd8cd] focus:bg-white ${className}`}
+        {...props}
       >
         {children}
       </select>

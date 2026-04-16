@@ -33,8 +33,18 @@ function decodeJwtExpiry(token) {
   return new Date(decoded.exp * 1000);
 }
 
+function verifyAccessToken(token) {
+  return jwt.verify(token, env.jwt.accessSecret);
+}
+
+function verifyRefreshToken(token) {
+  return jwt.verify(token, env.jwt.refreshSecret);
+}
+
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
   decodeJwtExpiry,
+  verifyAccessToken,
+  verifyRefreshToken,
 };

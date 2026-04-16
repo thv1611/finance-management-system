@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import AuthMessage from "../components/auth/AuthMessage";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import StatCard from "../components/dashboard/StatCard";
@@ -8,43 +10,154 @@ import AIInsightCard from "../components/dashboard/AIInsightCard";
 import QuickActions from "../components/dashboard/QuickActions";
 import LoadingState from "../components/common/LoadingState";
 import { getAuthSession } from "../lib/authSession";
-import { formatCurrency, getBudgetSummary, getTransactionSummary, useFinanceData } from "../lib/financeData";
+import { formatCurrency } from "../lib/financeData";
+import {
+  getDashboardBudgetSnapshot,
+  getRecentDashboardTransactions,
+  getDashboardSpendingAnalytics,
+  getDashboardSummary,
+} from "../lib/dashboardApi";
+
+const EMPTY_SUMMARY = {
+  total_balance: 0,
+  monthly_income: 0,
+  monthly_expenses: 0,
+  monthly_savings: 0,
+};
+
+const EMPTY_BUDGET_SNAPSHOT = {
+  total_budgets: 0,
+  total_budget_amount: 0,
+  total_spent_amount: 0,
+  overspent_categories_count: 0,
+  items: [],
+};
+
+const EMPTY_ANALYTICS = {
+  range: "monthly",
+  view: "both",
+  series: [],
+  max_value: 0,
+};
+
+function getTransactionIcon(type) {
+  return type === "income" ? "income" : "expense";
+}
+
+function mapRecentTransaction(transaction) {
+  return {
+    id: transaction.id,
+    type: transaction.type,
+    amount: Number(transaction.amount || 0),
+    category: transaction.category_name || "Uncategorized",
+    description: transaction.title || transaction.description || "Untitled transaction",
+    status: "Completed",
+    icon: getTransactionIcon(transaction.type),
+    date: transaction.transaction_date,
+  };
+}
 
 export default function DashboardPage() {
   const { user } = getAuthSession();
-  const { isLoading, transactions, budgets, reports } = useFinanceData();
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState("neutral");
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [budgetSnapshot, setBudgetSnapshot] = useState(EMPTY_BUDGET_SNAPSHOT);
+  const [spendingAnalytics, setSpendingAnalytics] = useState(EMPTY_ANALYTICS);
   const userName = user?.name || "User";
-  const transactionSummary = getTransactionSummary(transactions);
-  const budgetSummary = getBudgetSummary(budgets);
-  const hasTransactions = transactions.length > 0;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDashboard() {
+      try {
+        setIsLoading(true);
+        setMessage("");
+
+        const results = await Promise.allSettled([
+          getDashboardSummary(),
+          getRecentDashboardTransactions(),
+          getDashboardBudgetSnapshot(),
+          getDashboardSpendingAnalytics(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const [summaryResult, recentResult, budgetResult, analyticsResult] = results;
+        const failedResult = results.find((result) => result.status === "rejected");
+
+        if (summaryResult.status === "fulfilled") {
+          setSummary(summaryResult.value.data || EMPTY_SUMMARY);
+        }
+
+        if (recentResult.status === "fulfilled") {
+          setRecentTransactions((recentResult.value.data || []).map(mapRecentTransaction));
+        }
+
+        if (budgetResult.status === "fulfilled") {
+          setBudgetSnapshot(budgetResult.value.data || EMPTY_BUDGET_SNAPSHOT);
+        }
+
+        if (analyticsResult.status === "fulfilled") {
+          setSpendingAnalytics(analyticsResult.value.data || EMPTY_ANALYTICS);
+        }
+
+        if (failedResult) {
+          setTone("error");
+          setMessage(
+            failedResult.reason?.response?.message ||
+              failedResult.reason?.message ||
+              "Some dashboard data could not be loaded."
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const hasTransactions = recentTransactions.length > 0;
+  const hasBudgetData = budgetSnapshot.items.length > 0;
   const stats = [
     {
       icon: "wallet",
       label: "Total Balance",
-      amount: formatCurrency(transactionSummary.net),
-      trend: hasTransactions ? "Live" : "0%",
-      tone: "positive",
+      amount: formatCurrency(summary.total_balance),
+      trend: "Live",
+      tone: summary.total_balance >= 0 ? "positive" : "negative",
     },
     {
       icon: "income",
       label: "Monthly Income",
-      amount: formatCurrency(transactionSummary.income),
-      trend: hasTransactions ? "Live" : "0%",
+      amount: formatCurrency(summary.monthly_income),
+      trend: "Live",
       tone: "positive",
     },
     {
       icon: "expense",
       label: "Monthly Expenses",
-      amount: formatCurrency(transactionSummary.expenses),
-      trend: hasTransactions ? "Live" : "0%",
-      tone: hasTransactions ? "negative" : "positive",
+      amount: formatCurrency(summary.monthly_expenses),
+      trend: "Live",
+      tone: summary.monthly_expenses > 0 ? "negative" : "positive",
     },
     {
       icon: "savings",
       label: "Monthly Savings",
-      amount: formatCurrency(budgetSummary.remaining),
-      trend: budgets.length ? "Live" : "0%",
-      tone: "positive",
+      amount: formatCurrency(summary.monthly_savings),
+      trend: "Live",
+      tone: summary.monthly_savings >= 0 ? "positive" : "negative",
     },
   ];
 
@@ -67,8 +180,10 @@ export default function DashboardPage() {
             </p>
           </section>
 
+          <AuthMessage tone={tone} message={message} />
+
           {isLoading ? (
-            <LoadingState />
+            <LoadingState label="Loading dashboard..." />
           ) : (
             <>
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -78,14 +193,14 @@ export default function DashboardPage() {
               </section>
 
               <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(330px,0.9fr)]">
-                <SpendingAnalytics data={reports.monthlyComparison} />
-                <BudgetSnapshot budgets={budgets} />
+                <SpendingAnalytics data={spendingAnalytics} />
+                <BudgetSnapshot snapshot={budgetSnapshot} />
               </section>
 
               <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.75fr)]">
-                <RecentTransactions transactions={transactions} />
+                <RecentTransactions transactions={recentTransactions} />
                 <div className="space-y-6">
-                  <AIInsightCard hasData={hasTransactions || budgets.length > 0} />
+                  <AIInsightCard hasData={hasTransactions || hasBudgetData} />
                   <QuickActions />
                 </div>
               </section>

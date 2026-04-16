@@ -16,6 +16,14 @@ async function findUserByGoogleId(googleId) {
   return rows[0] || null;
 }
 
+async function findUserById(userId) {
+  const { rows } = await pool.query(
+    "SELECT * FROM users WHERE id = $1 LIMIT 1",
+    [userId]
+  );
+  return rows[0] || null;
+}
+
 async function createUser(fullName, email, passwordHash) {
   const { rows } = await pool.query(
     `INSERT INTO users (full_name, email, password_hash, auth_provider, is_verified)
@@ -111,6 +119,27 @@ async function createRefreshToken(userId, token, expiresAt) {
   return rows[0].id;
 }
 
+async function findRefreshToken(token) {
+  const { rows } = await pool.query(
+    `SELECT * FROM refresh_tokens
+     WHERE token = $1
+     LIMIT 1`,
+    [token]
+  );
+
+  return rows[0] || null;
+}
+
+async function revokeRefreshToken(token) {
+  await pool.query(
+    `UPDATE refresh_tokens
+     SET is_revoked = true,
+         revoked_at = NOW()
+     WHERE token = $1`,
+    [token]
+  );
+}
+
 async function createPasswordReset(userId, otpCode, otpExpiresAt) {
   const { rows } = await pool.query(
     `INSERT INTO password_resets (user_id, otp_code, otp_expires_at)
@@ -168,6 +197,7 @@ async function markPasswordResetCompleted(resetId) {
 module.exports = {
   findUserByEmail,
   findUserByGoogleId,
+  findUserById,
   createUser,
   createGoogleUser,
   linkGoogleAccount,
@@ -176,6 +206,8 @@ module.exports = {
   markOtpAsUsed,
   markUserAsVerified,
   createRefreshToken,
+  findRefreshToken,
+  revokeRefreshToken,
   createPasswordReset,
   findLatestPasswordResetByUserId,
   completePasswordResetOtp,

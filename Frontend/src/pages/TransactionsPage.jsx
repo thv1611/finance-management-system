@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
+import AuthMessage from "../components/auth/AuthMessage";
 import LoadingState from "../components/common/LoadingState";
 import TransactionSummaryCard from "../components/transactions/TransactionSummaryCard";
 import TransactionsHeader from "../components/transactions/TransactionsHeader";
@@ -10,19 +12,200 @@ import {
   WeeklyAIInsightsCard,
 } from "../components/transactions/TransactionsWidgets";
 import { getAuthSession } from "../lib/authSession";
-import { formatCurrency, getTransactionSummary, useFinanceData } from "../lib/financeData";
+import { formatCurrency } from "../lib/financeData";
+import { deleteTransaction, getCategories, getTransactions } from "../lib/transactionsApi";
+
+function getTransactionIcon(type) {
+  return type === "income" ? "income" : "expense";
+}
+
+function mapTransactionRow(transaction) {
+  return {
+    id: transaction.id,
+    type: transaction.type,
+    amount: Number(transaction.amount || 0),
+    categoryId: transaction.category_id,
+    category: transaction.category_name || "Uncategorized",
+    title: transaction.title || "Untitled transaction",
+    description: transaction.title || transaction.description || "Untitled transaction",
+    note: transaction.description || "",
+    account: "Unassigned",
+    date: transaction.transaction_date,
+    status: "Completed",
+    icon: getTransactionIcon(transaction.type),
+  };
+}
+
+const EMPTY_SUMMARY = {
+  income: 0,
+  expenses: 0,
+  net: 0,
+};
 
 export default function TransactionsPage() {
   const { user } = getAuthSession();
-  const { isLoading, transactions } = useFinanceData();
-  const summary = getTransactionSummary(transactions);
-  const hasTransactions = transactions.length > 0;
+  const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState("neutral");
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 15,
+    totalCount: 0,
+    totalPages: 1,
+  });
+  const [filters, setFilters] = useState({
+    type: "all",
+    datePreset: "all",
+    startDate: "",
+    endDate: "",
+    categoryIds: [],
+  });
+  const [deletingId, setDeletingId] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        const result = await getCategories();
+
+        if (isMounted) {
+          setCategories(result.data || []);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setTone("error");
+          setMessage(error.response?.message || error.message || "Unable to load categories.");
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTransactions() {
+      try {
+        setIsLoading(true);
+        setMessage("");
+
+        const params = {
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+        };
+
+        if (filters.type !== "all") {
+          params.type = filters.type;
+        }
+
+        if (filters.datePreset && filters.datePreset !== "all") {
+          params.datePreset = filters.datePreset;
+        }
+
+        if (filters.datePreset === "customRange") {
+          if (filters.startDate && filters.endDate) {
+            params.startDate = filters.startDate;
+            params.endDate = filters.endDate;
+          }
+        }
+
+        if (filters.categoryIds.length > 0) {
+          params.categories = filters.categoryIds.join(",");
+        }
+
+        const result = await getTransactions(params);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const payload = result.data || {};
+        setTransactions((payload.items || []).map(mapTransactionRow));
+        setSummary(payload.summary || EMPTY_SUMMARY);
+        setPagination((prev) => ({
+          ...prev,
+          ...(payload.pagination || prev),
+        }));
+      } catch (error) {
+        if (isMounted) {
+          setTone("error");
+          setMessage(error.response?.message || error.message || "Unable to load transactions.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filters, pagination.page, pagination.pageSize, reloadKey]);
+
+  const hasTransactions = pagination.totalCount > 0;
   const summaries = [
-    ["dashboard", "Total Transactions", String(summary.count), hasTransactions ? "Live" : "0%", "positive"],
+    ["dashboard", "Total Transactions", String(pagination.totalCount), hasTransactions ? "Live" : "0%", "positive"],
     ["income", "Monthly Income", formatCurrency(summary.income), hasTransactions ? "Live" : "0%", "positive"],
     ["expense", "Monthly Expenses", formatCurrency(summary.expenses), hasTransactions ? "Live" : "0%", hasTransactions ? "negative" : "positive"],
     ["wallet", "Net Balance", `${summary.net >= 0 ? "+" : "-"}${formatCurrency(summary.net)}`, hasTransactions ? "Live" : "0%", "positive"],
   ];
+
+  function updateFilters(patch) {
+    setFilters((prev) => ({
+      ...prev,
+      ...patch,
+    }));
+    setPagination((prev) => ({
+      ...prev,
+      page: 1,
+    }));
+  }
+
+  function handleToggleCategory(categoryId) {
+    updateFilters({
+      categoryIds: filters.categoryIds.includes(categoryId)
+        ? filters.categoryIds.filter((id) => id !== categoryId)
+        : [...filters.categoryIds, categoryId],
+    });
+  }
+
+  async function handleDeleteTransaction(transactionId) {
+    const confirmed = window.confirm("Are you sure you want to delete this transaction?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(transactionId);
+      await deleteTransaction(transactionId);
+      setTone("neutral");
+      setMessage("Transaction deleted successfully.");
+      setReloadKey((prev) => prev + 1);
+      setPagination((prev) => ({
+        ...prev,
+        page: prev.page > 1 && transactions.length === 1 ? prev.page - 1 : prev.page,
+      }));
+    } catch (error) {
+      setTone("error");
+      setMessage(error.response?.message || error.message || "Unable to delete the transaction.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#eef2f5] text-[#1f2d38]">
@@ -44,20 +227,56 @@ export default function TransactionsPage() {
             </p>
           </section>
 
+          <AuthMessage tone={tone} message={message} />
+
           {isLoading ? (
-            <LoadingState />
+            <LoadingState label="Loading transactions..." />
           ) : (
             <>
               <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {summaries.map(([icon, title, value, trend, tone]) => (
-                  <TransactionSummaryCard key={title} icon={icon} title={title} value={value} trend={trend} tone={tone} />
+                {summaries.map(([icon, title, value, trend, cardTone]) => (
+                  <TransactionSummaryCard key={title} icon={icon} title={title} value={value} trend={trend} tone={cardTone} />
                 ))}
               </section>
 
-              <TransactionsToolbar />
+              <TransactionsToolbar
+                activeType={filters.type}
+                activeDatePreset={filters.datePreset}
+                customStartDate={filters.startDate}
+                customEndDate={filters.endDate}
+                categories={categories}
+                selectedCategoryIds={filters.categoryIds}
+                onTypeChange={(type) => updateFilters({ type })}
+                onDatePresetChange={(datePreset) =>
+                  updateFilters({
+                    datePreset,
+                    ...(datePreset !== "customRange" ? { startDate: "", endDate: "" } : {}),
+                  })
+                }
+                onCustomStartDateChange={(startDate) => updateFilters({ startDate })}
+                onCustomEndDateChange={(endDate) => updateFilters({ endDate })}
+                onClearDateFilter={() =>
+                  updateFilters({
+                    datePreset: "all",
+                    startDate: "",
+                    endDate: "",
+                  })
+                }
+                onToggleCategory={handleToggleCategory}
+                onClearCategories={() => updateFilters({ categoryIds: [] })}
+              />
 
               <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(310px,0.65fr)]">
-                <TransactionsTable transactions={transactions} />
+                <TransactionsTable
+                  transactions={transactions}
+                  currentPage={pagination.page}
+                  pageSize={pagination.pageSize}
+                  totalCount={pagination.totalCount}
+                  totalPages={pagination.totalPages}
+                  onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+                  onDelete={handleDeleteTransaction}
+                  deletingId={deletingId}
+                />
                 <aside className="mt-6 space-y-6">
                   <WeeklyAIInsightsCard hasData={hasTransactions} />
                   <SavingGoalsCard hasData={hasTransactions} />

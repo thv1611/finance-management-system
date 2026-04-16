@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import AuthMessage from "../components/auth/AuthMessage";
+import LoadingState from "../components/common/LoadingState";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import { Icon } from "../components/dashboard/DashboardIcons";
 import EditTransactionActions from "../components/transactions/EditTransactionActions";
@@ -7,11 +11,110 @@ import ReceiptPreviewCard from "../components/transactions/ReceiptPreviewCard";
 import TransactionSummaryPanel from "../components/transactions/TransactionSummaryPanel";
 import { getAuthSession } from "../lib/authSession";
 import EmptyState from "../components/common/EmptyState";
-import { useFinanceData } from "../lib/financeData";
+import { deleteTransaction, getCategories, getTransactionById, updateTransaction } from "../lib/transactionsApi";
 
 export default function EditTransactionPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = getAuthSession();
-  const { selectedTransaction } = useFinanceData();
+  const transactionId = Number(searchParams.get("id"));
+  const [transaction, setTransaction] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState("neutral");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTransaction() {
+      if (!transactionId) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const [transactionResult, categoriesResult] = await Promise.all([
+          getTransactionById(transactionId),
+          getCategories(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        const transactionData = transactionResult.data;
+        setTransaction({
+          ...transactionData,
+          amount: Number(transactionData.amount || 0),
+          date: transactionData.transaction_date,
+          createdAt: transactionData.created_at,
+        });
+        setCategories(categoriesResult.data || []);
+      } catch (error) {
+        if (isMounted) {
+          setTone("error");
+          setMessage(error.response?.message || error.message || "Unable to load the transaction.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadTransaction();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [transactionId]);
+
+  async function handleSave(payload) {
+    try {
+      setIsSaving(true);
+      setMessage("");
+      const result = await updateTransaction(transactionId, payload);
+      setTransaction({
+        ...result.data,
+        amount: Number(result.data.amount || 0),
+        date: result.data.transaction_date,
+        createdAt: result.data.created_at,
+      });
+      setTone("neutral");
+      setMessage("Transaction updated successfully.");
+      window.setTimeout(() => {
+        navigate("/transactions");
+      }, 700);
+    } catch (error) {
+      setTone("error");
+      setMessage(error.response?.message || error.message || "Unable to update the transaction.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    const confirmed = window.confirm("Are you sure you want to delete this transaction?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await deleteTransaction(transactionId);
+      navigate("/transactions");
+    } catch (error) {
+      setTone("error");
+      setMessage(error.response?.message || error.message || "Unable to delete the transaction.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#eef2f5] text-[#1f2d38]">
@@ -43,16 +146,33 @@ export default function EditTransactionPage() {
             </div>
           </header>
 
-          {selectedTransaction ? (
+          <AuthMessage tone={tone} message={message} />
+
+          {isLoading ? (
+            <section className="mt-8">
+              <LoadingState label="Loading transaction details..." />
+            </section>
+          ) : transaction ? (
             <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
               <div>
-                <EditTransactionForm transaction={selectedTransaction} />
-                <EditTransactionActions />
+                <EditTransactionForm
+                  transaction={transaction}
+                  categories={categories}
+                  onSubmit={handleSave}
+                  isSubmitting={isSaving}
+                />
+                <EditTransactionActions
+                  onDelete={handleDelete}
+                  onCancel={() => navigate("/transactions")}
+                  isDeleting={isDeleting}
+                  isSubmitting={isSaving}
+                  formId="edit-transaction-form"
+                />
               </div>
 
               <aside className="space-y-6">
-                <TransactionSummaryPanel transaction={selectedTransaction} />
-                <ReceiptPreviewCard receiptUrl={selectedTransaction.receiptUrl} />
+                <TransactionSummaryPanel transaction={transaction} />
+                <ReceiptPreviewCard receiptUrl={transaction.receiptUrl} />
                 <QuickTipCard />
               </aside>
             </section>

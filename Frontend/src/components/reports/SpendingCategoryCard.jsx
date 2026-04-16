@@ -2,8 +2,27 @@ import ReportCard from "./ReportCard";
 import EmptyState from "../common/EmptyState";
 import { formatCurrency } from "../../lib/financeData";
 
+function buildSegments(data) {
+  const circumference = 2 * Math.PI * 45;
+  let offset = 0;
+
+  return data.map((item) => {
+    const percent = Number(item.percent || 0);
+    const length = (percent / 100) * circumference;
+    const segment = {
+      ...item,
+      dashArray: `${length} ${circumference - length}`,
+      dashOffset: -offset,
+    };
+
+    offset += length;
+    return segment;
+  });
+}
+
 export default function SpendingCategoryCard({ data = [] }) {
   const total = data.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const segments = buildSegments(data);
 
   return (
     <ReportCard title="Spending by Category">
@@ -12,9 +31,20 @@ export default function SpendingCategoryCard({ data = [] }) {
         <div className="relative grid h-52 w-52 place-items-center">
           <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120">
             <circle cx="60" cy="60" r="45" fill="none" stroke="#edf3f5" strokeWidth="16" />
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#13977f" strokeDasharray="118 283" strokeDashoffset="0" strokeLinecap="round" strokeWidth="16" />
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#2d8ce9" strokeDasharray="79 283" strokeDashoffset="-128" strokeLinecap="round" strokeWidth="16" />
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#88d9cd" strokeDasharray="42 283" strokeDashoffset="-217" strokeLinecap="round" strokeWidth="16" />
+            {segments.map((item) => (
+              <circle
+                key={item.name}
+                cx="60"
+                cy="60"
+                r="45"
+                fill="none"
+                stroke={item.color || "#13977f"}
+                strokeDasharray={item.dashArray}
+                strokeDashoffset={item.dashOffset}
+                strokeLinecap="round"
+                strokeWidth="16"
+              />
+            ))}
           </svg>
           <div className="absolute text-center">
             <p className="text-3xl font-black tracking-[-0.04em] text-[#1f2d38]">{formatCurrency(total)}</p>
@@ -29,7 +59,7 @@ export default function SpendingCategoryCard({ data = [] }) {
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color || "#13977f" }} />
                 {item.name}
               </span>
-              <span className="text-sm font-black text-[#1f2d38]">{item.percent || 0}%</span>
+              <span className="text-sm font-black text-[#1f2d38]">{Number(item.percent || 0).toFixed(1)}%</span>
             </div>
           ))}
         </div>

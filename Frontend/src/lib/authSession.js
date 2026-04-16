@@ -49,6 +49,14 @@ export function persistAuthSession(authData) {
   localStorage.setItem("user", JSON.stringify(normalizeAuthUser(authData.user)));
 }
 
+export function updateAccessToken(accessToken) {
+  if (!accessToken) {
+    return;
+  }
+
+  localStorage.setItem("access_token", accessToken);
+}
+
 export function clearAuthSession() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");

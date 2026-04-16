@@ -28,6 +28,10 @@ const loginValidation = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
+const refreshAccessTokenValidation = [
+  body("refresh_token").trim().notEmpty().withMessage("Refresh token is required"),
+];
+
 const forgotPasswordValidation = [
   body("email").isEmail().withMessage("Valid email is required"),
 ];
@@ -77,6 +81,7 @@ module.exports = {
   verifyOtpValidation,
   resendVerificationOtpValidation,
   loginValidation,
+  refreshAccessTokenValidation,
   forgotPasswordValidation,
   verifyPasswordResetOtpValidation,
   resetPasswordValidation,

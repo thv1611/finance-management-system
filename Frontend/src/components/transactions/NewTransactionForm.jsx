@@ -1,24 +1,34 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import AuthMessage from "../auth/AuthMessage";
 import { Icon } from "../dashboard/DashboardIcons";
+import { appendTransactionToFinanceData } from "../../lib/financeData";
+import { createTransaction, getCategories } from "../../lib/transactionsApi";
 import FormField from "./FormField";
 import { SelectInput } from "./TransactionInput";
 
-function TypeToggle() {
+function TypeToggle({ value, onChange, disabled }) {
   return (
     <div className="mx-auto mt-6 grid max-w-[320px] grid-cols-2 rounded-lg bg-[#eff4f6] p-1.5">
-      {["Expense", "Income"].map((type) => {
-        const active = type === "Expense";
+      {[
+        ["Expense", "expense"],
+        ["Income", "income"],
+      ].map(([label, type]) => {
+        const active = type === value;
 
         return (
           <button
             key={type}
             type="button"
+            disabled={disabled}
+            onClick={() => onChange(type)}
             className={`rounded-md px-4 py-3 text-sm font-black transition ${
               active
                 ? "bg-[#26333e] text-white shadow-[0_12px_26px_rgba(38,51,62,0.16)]"
                 : "text-[#7d8a96] hover:bg-white/75 hover:text-[#26333e]"
-            }`}
+            } disabled:cursor-not-allowed disabled:opacity-70`}
           >
-            {type}
+            {label}
           </button>
         );
       })}
@@ -30,7 +40,6 @@ function PlainInput({ value, className = "", ...props }) {
   return (
     <input
       value={value}
-      onChange={() => {}}
       className={`h-12 w-full rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 text-sm font-bold text-[#25313b] outline-none transition focus:border-[#8fd8cd] focus:bg-white ${className}`}
       {...props}
     />
@@ -74,7 +83,201 @@ function AttachmentArea() {
   );
 }
 
+function formatAmountInput(value) {
+  if (!value) {
+    return "";
+  }
+
+  return Number(value).toLocaleString("vi-VN");
+}
+
 export default function NewTransactionForm() {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({
+    type: "expense",
+    amount: "",
+    category_id: "",
+    title: "",
+    description: "",
+    transaction_date: new Date().toISOString().slice(0, 10),
+    transaction_time: "12:45",
+    account: "Main Savings Bank",
+  });
+  const [categories, setCategories] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState("neutral");
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCategories() {
+      try {
+        setIsLoadingCategories(true);
+        const result = await getCategories();
+        if (!isMounted) {
+          return;
+        }
+        setCategories(result.data || []);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setTone("error");
+        setMessage(error.response?.message || error.message || "Unable to load categories.");
+      } finally {
+        if (isMounted) {
+          setIsLoadingCategories(false);
+        }
+      }
+    }
+
+    loadCategories();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredCategories = useMemo(
+    () => categories.filter((category) => category.type === form.type),
+    [categories, form.type]
+  );
+
+  useEffect(() => {
+    if (!filteredCategories.some((category) => String(category.id) === form.category_id)) {
+      setForm((prev) => ({
+        ...prev,
+        category_id: "",
+      }));
+    }
+  }, [filteredCategories, form.category_id]);
+
+  function handleChange(event) {
+    const { name, value } = event.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  }
+
+  function handleAmountChange(event) {
+    const digitsOnly = event.target.value.replace(/[^\d]/g, "");
+
+    setForm((prev) => ({
+      ...prev,
+      amount: digitsOnly,
+    }));
+
+    if (errors.amount) {
+      setErrors((prev) => ({
+        ...prev,
+        amount: "",
+      }));
+    }
+  }
+
+  function handleTypeChange(type) {
+    setForm((prev) => ({
+      ...prev,
+      type,
+      category_id: "",
+    }));
+    setErrors((prev) => ({
+      ...prev,
+      type: "",
+      category_id: "",
+    }));
+  }
+
+  function validateForm() {
+    const nextErrors = {};
+    const numericAmount = Number(form.amount);
+
+    if (!form.type) {
+      nextErrors.type = "Please select a transaction type.";
+    }
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      nextErrors.amount = "Amount must be greater than 0.";
+    }
+
+    if (!form.title.trim()) {
+      nextErrors.title = "Title is required.";
+    }
+
+    if (!form.category_id) {
+      nextErrors.category_id = "Please choose a category.";
+    }
+
+    if (!form.transaction_date) {
+      nextErrors.transaction_date = "Transaction date is required.";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!validateForm()) {
+      setTone("error");
+      setMessage("Please fix the highlighted fields and try again.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const result = await createTransaction({
+        type: form.type,
+        amount: Number(form.amount),
+        category_id: Number(form.category_id),
+        title: form.title.trim(),
+        description: form.description.trim(),
+        transaction_date: form.transaction_date,
+      });
+
+      appendTransactionToFinanceData(result.data);
+      setTone("neutral");
+      setMessage("Transaction saved successfully.");
+
+      setForm({
+        type: "expense",
+        amount: "",
+        category_id: "",
+        title: "",
+        description: "",
+        transaction_date: new Date().toISOString().slice(0, 10),
+        transaction_time: "12:45",
+        account: "Main Savings Bank",
+      });
+      setErrors({});
+
+      window.setTimeout(() => {
+        navigate("/transactions");
+      }, 700);
+    } catch (error) {
+      const fieldMessage = error.response?.errors?.[0]?.msg;
+      setTone("error");
+      setMessage(error.response?.message || fieldMessage || error.message || "Unable to save the transaction.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <section className="mx-auto mt-8 max-w-[760px] rounded-lg bg-white p-6 shadow-[0_28px_70px_rgba(35,66,85,0.075)] md:p-8">
       <div className="text-center">
@@ -84,43 +287,83 @@ export default function NewTransactionForm() {
         </p>
       </div>
 
-      <form className="mt-8 space-y-6">
+      <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <AuthMessage tone={tone} message={message} />
+
         <div className="rounded-lg bg-[#f6fafb] px-5 py-7 text-center">
           <p className="text-sm font-black uppercase tracking-[0.14em] text-[#9aa6b2]">Transaction Amount</p>
           <div className="mt-3 flex items-center justify-center gap-3">
-            <span className="text-4xl font-black text-[#6f7c88]">$</span>
+            <span className="text-4xl font-black text-[#6f7c88]">₫</span>
             <input
-              value="0.00"
-              onChange={() => {}}
+              name="amount"
+              type="text"
+              inputMode="numeric"
+              value={formatAmountInput(form.amount)}
+              onChange={handleAmountChange}
+              placeholder="0"
               aria-label="Transaction amount"
               className="w-[180px] bg-transparent text-center text-6xl font-black tracking-[-0.07em] text-[#1f2d38] outline-none"
             />
           </div>
-          <TypeToggle />
+          {errors.amount ? <p className="mt-3 text-sm font-semibold text-red-600">{errors.amount}</p> : null}
+          <TypeToggle value={form.type} onChange={handleTypeChange} disabled={isSubmitting} />
+          {errors.type ? <p className="mt-3 text-sm font-semibold text-red-600">{errors.type}</p> : null}
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
-          <FormField label="Category">
-            <SelectInput value="Select a category">
-              <option>Select a category</option>
-              <option>Dining</option>
-              <option>Shopping</option>
+          <FormField label="Title" hint={errors.title || "A short label for this transaction"}>
+            <PlainInput
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              placeholder="Ex: Lunch with friends"
+              aria-label="Title"
+            />
+          </FormField>
+          <FormField label="Category" hint={errors.category_id || "Pick a category that matches the transaction type"}>
+            <SelectInput
+              name="category_id"
+              value={form.category_id}
+              onChange={handleChange}
+              disabled={isLoadingCategories || isSubmitting}
+            >
+              <option value="">
+                {isLoadingCategories ? "Loading categories..." : "Select a category"}
+              </option>
+              {filteredCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
             </SelectInput>
           </FormField>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Date">
-              <PlainInput value="11/24/2023" aria-label="Date" />
-            </FormField>
-            <FormField label="Time">
-              <PlainInput value="12:45 PM" aria-label="Time" />
-            </FormField>
-          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Date" hint={errors.transaction_date || undefined}>
+            <PlainInput
+              name="transaction_date"
+              type="date"
+              value={form.transaction_date}
+              onChange={handleChange}
+              aria-label="Date"
+            />
+          </FormField>
+          <FormField label="Time">
+            <PlainInput
+              name="transaction_time"
+              type="time"
+              value={form.transaction_time}
+              onChange={handleChange}
+              aria-label="Time"
+            />
+          </FormField>
         </div>
 
         <AiSuggestionBanner />
 
         <FormField label="Account / Wallet">
-          <SelectInput value="Main Savings Bank">
+          <SelectInput name="account" value={form.account} onChange={handleChange}>
             <option>Main Savings Bank</option>
             <option>Main Wallet</option>
             <option>Credit Card</option>
@@ -129,6 +372,9 @@ export default function NewTransactionForm() {
 
         <FormField label="Note">
           <textarea
+            name="description"
+            value={form.description}
+            onChange={handleChange}
             placeholder="Add some context to this flow..."
             className="min-h-[110px] w-full resize-none rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 py-3 text-sm font-semibold text-[#25313b] outline-none transition placeholder:text-[#a5afb8] focus:border-[#8fd8cd] focus:bg-white"
           />
@@ -138,10 +384,11 @@ export default function NewTransactionForm() {
 
         <div className="pt-2 text-center">
           <button
-            type="button"
-            className="h-12 w-full max-w-[310px] rounded-full bg-gradient-to-r from-[#087d6f] to-[#78dcc7] text-sm font-black text-white shadow-[0_18px_38px_rgba(15,143,131,0.24)] transition hover:-translate-y-0.5"
+            type="submit"
+            disabled={isSubmitting || isLoadingCategories}
+            className="h-12 w-full max-w-[310px] rounded-full bg-gradient-to-r from-[#087d6f] to-[#78dcc7] text-sm font-black text-white shadow-[0_18px_38px_rgba(15,143,131,0.24)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Save Transaction
+            {isSubmitting ? "Saving..." : "Save Transaction"}
           </button>
         </div>
       </form>

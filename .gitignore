@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+Backend/node_modules/
+Frontend/node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+.cache/
+Backend/dist/
+Backend/build/
+Backend/coverage/
+Backend/.cache/
+Frontend/dist/
+Frontend/build/
+Frontend/coverage/
+Frontend/.cache/
+Frontend/dist-ssr/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+Backend/.env
+Backend/.env.*
+Frontend/.env
+Frontend/.env.*
+
+# Logs
+logs/
+*.log
+*.err
+*.out
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local temp and certificates
+*.tmp
+*.temp
+*.pid
+*.seed
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
