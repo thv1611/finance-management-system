@@ -35,7 +35,7 @@ export default function PasswordField({
         <button
           type="button"
           onClick={onToggle}
-          className="absolute inset-y-0 right-3 text-sm font-medium text-[#6b7280] transition hover:text-[#374151]"
+          className="absolute inset-y-0 right-3 text-sm font-bold text-[#6b7280] transition hover:text-[#374151]"
           aria-label={show ? "Hide password" : "Show password"}
         >
           {show ? "Hide" : "Show"}

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Icon } from "../dashboard/DashboardIcons";
 
 export default function SmartInsightCard({ hasData = false }) {
@@ -14,9 +15,12 @@ export default function SmartInsightCard({ hasData = false }) {
           : "Create budgets and add transactions to unlock smart recommendations."}
       </p>
       {hasData && (
-        <button className="mt-6 rounded-lg bg-[#26333e] px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(38,51,62,0.18)] transition hover:-translate-y-0.5 hover:bg-[#13977f]">
+        <Link
+          to="/ai-insights"
+          className="mt-6 inline-flex rounded-lg bg-[#26333e] px-5 py-3 text-sm font-black text-white shadow-[0_14px_30px_rgba(38,51,62,0.18)] transition hover:-translate-y-0.5 hover:bg-[#13977f]"
+        >
           Apply Suggestion
-        </button>
+        </Link>
       )}
     </section>
   );

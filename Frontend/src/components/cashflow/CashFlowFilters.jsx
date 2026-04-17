@@ -1,12 +1,14 @@
 const ranges = ["Weekly", "Monthly", "Yearly"];
 const metrics = ["Income", "Expenses", "Difference"];
 
-function SegmentedControl({ items, active }) {
+function SegmentedControl({ items, active, onChange }) {
   return (
     <div className="flex w-fit rounded-lg bg-white p-1.5 shadow-[0_14px_35px_rgba(35,66,85,0.05)]">
       {items.map((item) => (
         <button
           key={item}
+          type="button"
+          onClick={() => onChange?.(item)}
           className={`rounded-md px-5 py-2.5 text-sm font-black transition ${
             item === active
               ? "bg-[#13977f] text-white shadow-[0_10px_22px_rgba(19,151,127,0.2)]"
@@ -20,11 +22,16 @@ function SegmentedControl({ items, active }) {
   );
 }
 
-export default function CashFlowFilters() {
+export default function CashFlowFilters({
+  activeRange = "Weekly",
+  activeMetric = "Difference",
+  onRangeChange,
+  onMetricChange,
+}) {
   return (
     <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <SegmentedControl items={ranges} active="Weekly" />
-      <SegmentedControl items={metrics} active="Income" />
+      <SegmentedControl items={ranges} active={activeRange} onChange={onRangeChange} />
+      <SegmentedControl items={metrics} active={activeMetric} onChange={onMetricChange} />
     </div>
   );
 }

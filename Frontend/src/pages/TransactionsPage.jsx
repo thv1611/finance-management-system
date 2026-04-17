@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import DashboardSidebar from "../components/dashboard/DashboardSidebar";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AuthMessage from "../components/auth/AuthMessage";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import LoadingState from "../components/common/LoadingState";
+import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import TransactionSummaryCard from "../components/transactions/TransactionSummaryCard";
 import TransactionsHeader from "../components/transactions/TransactionsHeader";
 import TransactionsTable from "../components/transactions/TransactionsTable";
@@ -11,6 +13,7 @@ import {
   SavingGoalsCard,
   WeeklyAIInsightsCard,
 } from "../components/transactions/TransactionsWidgets";
+import { useNotificationFeed } from "../hooks/useNotificationFeed";
 import { getAuthSession } from "../lib/authSession";
 import { formatCurrency } from "../lib/financeData";
 import { deleteTransaction, getCategories, getTransactions } from "../lib/transactionsApi";
@@ -42,29 +45,127 @@ const EMPTY_SUMMARY = {
   net: 0,
 };
 
+function parseCsvList(value) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getInitialFilters(searchParams) {
+  return {
+    search: searchParams.get("search") || "",
+    type: searchParams.get("type") || "all",
+    datePreset: searchParams.get("datePreset") || "all",
+    startDate: searchParams.get("startDate") || "",
+    endDate: searchParams.get("endDate") || "",
+    categoryIds: parseCsvList(searchParams.get("categories")),
+  };
+}
+
+function getInitialPagination(searchParams) {
+  const page = Number(searchParams.get("page"));
+  const pageSize = Number(searchParams.get("pageSize"));
+
+  return {
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+    pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 15,
+    totalCount: 0,
+    totalPages: 1,
+  };
+}
+
+function buildTransactionsSearchParams(filters, pagination) {
+  const next = new URLSearchParams();
+
+  if (filters.search.trim()) {
+    next.set("search", filters.search.trim());
+  }
+
+  if (filters.type !== "all") {
+    next.set("type", filters.type);
+  }
+
+  if (filters.datePreset !== "all") {
+    next.set("datePreset", filters.datePreset);
+  }
+
+  if (filters.datePreset === "customRange") {
+    if (filters.startDate) {
+      next.set("startDate", filters.startDate);
+    }
+
+    if (filters.endDate) {
+      next.set("endDate", filters.endDate);
+    }
+  }
+
+  if (filters.categoryIds.length > 0) {
+    next.set("categories", filters.categoryIds.join(","));
+  }
+
+  if (pagination.page > 1) {
+    next.set("page", String(pagination.page));
+  }
+
+  if (pagination.pageSize !== 15) {
+    next.set("pageSize", String(pagination.pageSize));
+  }
+
+  return next;
+}
+
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, "\"\"")}"` : text;
+}
+
+function downloadCsv(filename, rows) {
+  const content = rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function TransactionsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = getAuthSession();
+  const {
+    notifications,
+    unreadCount,
+    onOpenNotifications,
+    onDismissNotification,
+  } = useNotificationFeed();
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("neutral");
   const [summary, setSummary] = useState(EMPTY_SUMMARY);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    pageSize: 15,
-    totalCount: 0,
-    totalPages: 1,
-  });
-  const [filters, setFilters] = useState({
-    type: "all",
-    datePreset: "all",
-    startDate: "",
-    endDate: "",
-    categoryIds: [],
-  });
+  const [pagination, setPagination] = useState(() => getInitialPagination(searchParams));
+  const [filters, setFilters] = useState(() => getInitialFilters(searchParams));
   const [deletingId, setDeletingId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [confirmState, setConfirmState] = useState({
+    isOpen: false,
+    transactionId: null,
+    transactionTitle: "",
+  });
+  const { page, pageSize, totalCount, totalPages } = pagination;
 
   useEffect(() => {
     let isMounted = true;
@@ -92,6 +193,16 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
+    const nextParams = buildTransactionsSearchParams(filters, { page, pageSize });
+    const nextQuery = nextParams.toString();
+    const currentQuery = searchParams.toString();
+
+    if (nextQuery !== currentQuery) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [filters, page, pageSize, searchParams, setSearchParams]);
+
+  useEffect(() => {
     let isMounted = true;
 
     async function loadTransactions() {
@@ -100,23 +211,25 @@ export default function TransactionsPage() {
         setMessage("");
 
         const params = {
-          page: pagination.page,
-          pageSize: pagination.pageSize,
+          page,
+          pageSize,
         };
+
+        if (filters.search.trim()) {
+          params.search = filters.search.trim();
+        }
 
         if (filters.type !== "all") {
           params.type = filters.type;
         }
 
-        if (filters.datePreset && filters.datePreset !== "all") {
+        if (filters.datePreset !== "all") {
           params.datePreset = filters.datePreset;
         }
 
-        if (filters.datePreset === "customRange") {
-          if (filters.startDate && filters.endDate) {
-            params.startDate = filters.startDate;
-            params.endDate = filters.endDate;
-          }
+        if (filters.datePreset === "customRange" && filters.startDate && filters.endDate) {
+          params.startDate = filters.startDate;
+          params.endDate = filters.endDate;
         }
 
         if (filters.categoryIds.length > 0) {
@@ -153,15 +266,20 @@ export default function TransactionsPage() {
     return () => {
       isMounted = false;
     };
-  }, [filters, pagination.page, pagination.pageSize, reloadKey]);
+  }, [filters, page, pageSize, reloadKey]);
 
-  const hasTransactions = pagination.totalCount > 0;
+  const hasTransactions = totalCount > 0;
   const summaries = [
-    ["dashboard", "Total Transactions", String(pagination.totalCount), hasTransactions ? "Live" : "0%", "positive"],
+    ["dashboard", "Total Transactions", String(totalCount), hasTransactions ? "Live" : "0%", "positive"],
     ["income", "Monthly Income", formatCurrency(summary.income), hasTransactions ? "Live" : "0%", "positive"],
     ["expense", "Monthly Expenses", formatCurrency(summary.expenses), hasTransactions ? "Live" : "0%", hasTransactions ? "negative" : "positive"],
     ["wallet", "Net Balance", `${summary.net >= 0 ? "+" : "-"}${formatCurrency(summary.net)}`, hasTransactions ? "Live" : "0%", "positive"],
   ];
+  const listSearch = useMemo(() => {
+    const params = buildTransactionsSearchParams(filters, { page, pageSize });
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }, [filters, page, pageSize]);
 
   function updateFilters(patch) {
     setFilters((prev) => ({
@@ -174,6 +292,48 @@ export default function TransactionsPage() {
     }));
   }
 
+  function openDeleteDialog(transactionId) {
+    const transaction = transactions.find((item) => item.id === transactionId);
+
+    setConfirmState({
+      isOpen: true,
+      transactionId,
+      transactionTitle: transaction?.title || transaction?.description || "this transaction",
+    });
+  }
+
+  function closeDeleteDialog() {
+    setConfirmState({
+      isOpen: false,
+      transactionId: null,
+      transactionTitle: "",
+    });
+  }
+
+  function handleExportTransactions() {
+    if (transactions.length === 0) {
+      setTone("error");
+      setMessage("There are no transactions to export.");
+      return;
+    }
+
+    downloadCsv("transactions-report.csv", [
+      ["Title", "Category", "Type", "Amount", "Date", "Description", "Status"],
+      ...transactions.map((transaction) => [
+        transaction.title,
+        transaction.category,
+        transaction.type,
+        transaction.amount,
+        transaction.date,
+        transaction.note,
+        transaction.status,
+      ]),
+    ]);
+
+    setTone("neutral");
+    setMessage("Transactions exported as CSV.");
+  }
+
   function handleToggleCategory(categoryId) {
     updateFilters({
       categoryIds: filters.categoryIds.includes(categoryId)
@@ -182,18 +342,17 @@ export default function TransactionsPage() {
     });
   }
 
-  async function handleDeleteTransaction(transactionId) {
-    const confirmed = window.confirm("Are you sure you want to delete this transaction?");
-
-    if (!confirmed) {
+  async function handleDeleteTransaction() {
+    if (!confirmState.transactionId) {
       return;
     }
 
     try {
-      setDeletingId(transactionId);
-      await deleteTransaction(transactionId);
+      setDeletingId(confirmState.transactionId);
+      await deleteTransaction(confirmState.transactionId);
       setTone("neutral");
       setMessage("Transaction deleted successfully.");
+      closeDeleteDialog();
       setReloadKey((prev) => prev + 1);
       setPagination((prev) => ({
         ...prev,
@@ -216,7 +375,16 @@ export default function TransactionsPage() {
 
       <main className="relative z-0 lg:pl-[248px]">
         <div className="mx-auto max-w-[1400px] px-4 py-5 md:px-8">
-          <TransactionsHeader user={user} />
+          <TransactionsHeader
+            user={user}
+            searchValue={filters.search}
+            onSearchChange={(event) => updateFilters({ search: event.target.value })}
+            addTransactionHref={`/transactions/new${listSearch}`}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onOpenNotifications={onOpenNotifications}
+            onDismissNotification={onDismissNotification}
+          />
 
           <section className="mt-8">
             <h1 className="text-4xl font-black tracking-[-0.04em] text-[#1f2d38] md:text-5xl">
@@ -264,22 +432,27 @@ export default function TransactionsPage() {
                 }
                 onToggleCategory={handleToggleCategory}
                 onClearCategories={() => updateFilters({ categoryIds: [] })}
+                onExport={handleExportTransactions}
               />
 
               <section className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(310px,0.65fr)]">
                 <TransactionsTable
                   transactions={transactions}
-                  currentPage={pagination.page}
-                  pageSize={pagination.pageSize}
-                  totalCount={pagination.totalCount}
-                  totalPages={pagination.totalPages}
+                  currentPage={page}
+                  pageSize={pageSize}
+                  totalCount={totalCount}
+                  totalPages={totalPages}
+                  addTransactionHref={`/transactions/new${listSearch}`}
+                  editTransactionHref={(transactionId) =>
+                    `/transactions/edit?id=${transactionId}${listSearch ? `&${listSearch.slice(1)}` : ""}`
+                  }
                   onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
-                  onDelete={handleDeleteTransaction}
+                  onDelete={openDeleteDialog}
                   deletingId={deletingId}
                 />
                 <aside className="mt-6 space-y-6">
                   <WeeklyAIInsightsCard hasData={hasTransactions} />
-                  <SavingGoalsCard hasData={hasTransactions} />
+                  <SavingGoalsCard hasData={hasTransactions} summary={summary} />
                   <QuickShortcutsCard />
                 </aside>
               </section>
@@ -287,6 +460,16 @@ export default function TransactionsPage() {
           )}
         </div>
       </main>
+
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title="Delete this transaction?"
+        description={`This will permanently remove ${confirmState.transactionTitle} from your records.`}
+        confirmLabel="Delete Transaction"
+        isConfirming={Boolean(deletingId)}
+        onConfirm={handleDeleteTransaction}
+        onCancel={closeDeleteDialog}
+      />
     </div>
   );
 }

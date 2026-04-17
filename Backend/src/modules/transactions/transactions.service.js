@@ -1,5 +1,29 @@
 const categoriesRepository = require("../categories/categories.repository");
 const transactionsRepository = require("./transactions.repository");
+const { deleteStoredReceipt, storeReceiptFromDataUrl } = require("../../utils/receipt");
+
+function formatReceiptUrl(receiptUrl) {
+  if (!receiptUrl) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(receiptUrl)) {
+    return receiptUrl;
+  }
+
+  return `http://localhost:5000${receiptUrl}`;
+}
+
+function mapTransactionResponse(transaction) {
+  if (!transaction) {
+    return transaction;
+  }
+
+  return {
+    ...transaction,
+    receipt_url: formatReceiptUrl(transaction.receipt_url),
+  };
+}
 
 function normalizeTransactionDate(value) {
   const parsedDate = new Date(value);
@@ -42,6 +66,7 @@ function normalizeListOptions(query = {}) {
   return {
     page,
     pageSize,
+    search: query.search ? String(query.search).trim() : "",
     type: validType,
     datePreset: validDatePreset,
     startDate:
@@ -63,6 +88,8 @@ async function validateTransactionPayload(userId, payload) {
     amount,
     title,
     description,
+    receipt_data: receiptData,
+    remove_receipt: removeReceipt,
     transaction_date: transactionDate,
   } = payload;
 
@@ -86,17 +113,25 @@ async function validateTransactionPayload(userId, payload) {
     amount,
     title: title.trim(),
     description: description?.trim() || null,
+    receiptData: receiptData || null,
+    removeReceipt: Boolean(removeReceipt),
     transactionDate: normalizeTransactionDate(transactionDate),
   };
 }
 
 async function createTransaction(userId, payload) {
   const normalizedPayload = await validateTransactionPayload(userId, payload);
+  const receiptUrl = normalizedPayload.receiptData
+    ? await storeReceiptFromDataUrl(normalizedPayload.receiptData)
+    : null;
 
-  return transactionsRepository.createTransaction({
+  const transaction = await transactionsRepository.createTransaction({
     userId,
     ...normalizedPayload,
+    receiptUrl,
   });
+
+  return mapTransactionResponse(transaction);
 }
 
 async function listTransactions(userId, query) {
@@ -125,7 +160,7 @@ async function listTransactions(userId, query) {
   };
 
   return {
-    items: rows,
+    items: rows.map(mapTransactionResponse),
     pagination: {
       page: options.page,
       pageSize: options.pageSize,
@@ -145,16 +180,28 @@ async function getTransaction(userId, transactionId) {
     throw error;
   }
 
-  return transaction;
+  return mapTransactionResponse(transaction);
 }
 
 async function updateTransaction(userId, transactionId, payload) {
-  await getTransaction(userId, transactionId);
+  const currentTransaction = await getTransaction(userId, transactionId);
   const normalizedPayload = await validateTransactionPayload(userId, payload);
+  let receiptUrl = currentTransaction.receipt_url || null;
+
+  if (normalizedPayload.receiptData) {
+    const nextReceiptUrl = await storeReceiptFromDataUrl(normalizedPayload.receiptData);
+    await deleteStoredReceipt(currentTransaction.receipt_url);
+    receiptUrl = nextReceiptUrl;
+  } else if (normalizedPayload.removeReceipt && currentTransaction.receipt_url) {
+    await deleteStoredReceipt(currentTransaction.receipt_url);
+    receiptUrl = null;
+  }
+
   const updatedTransaction = await transactionsRepository.updateTransaction({
     userId,
     transactionId,
     ...normalizedPayload,
+    receiptUrl,
   });
 
   if (!updatedTransaction) {
@@ -163,7 +210,7 @@ async function updateTransaction(userId, transactionId, payload) {
     throw error;
   }
 
-  return updatedTransaction;
+  return mapTransactionResponse(updatedTransaction);
 }
 
 async function deleteTransaction(userId, transactionId) {
@@ -174,6 +221,8 @@ async function deleteTransaction(userId, transactionId) {
     error.statusCode = 404;
     throw error;
   }
+
+  await deleteStoredReceipt(deletedTransaction.receipt_url);
 
   return deletedTransaction;
 }

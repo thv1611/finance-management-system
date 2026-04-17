@@ -46,6 +46,7 @@ export default function TransactionsToolbar({
   onClearDateFilter,
   onToggleCategory,
   onClearCategories,
+  onExport,
 }) {
   const [openPanel, setOpenPanel] = useState("");
   const selectedCategoryCount = selectedCategoryIds.length;
@@ -180,7 +181,11 @@ export default function TransactionsToolbar({
           <Icon name="settings" className="h-5 w-5" />
           <span className="sr-only">Filters</span>
         </button>
-        <button className="rounded-lg border border-[#dfe7eb] bg-white px-4 py-3 text-sm font-black text-[#53616d] shadow-[0_12px_28px_rgba(35,66,85,0.05)] transition hover:-translate-y-0.5 hover:text-[#0f8e7e]">
+        <button
+          type="button"
+          onClick={onExport}
+          className="rounded-lg border border-[#dfe7eb] bg-white px-4 py-3 text-sm font-black text-[#53616d] shadow-[0_12px_28px_rgba(35,66,85,0.05)] transition hover:-translate-y-0.5 hover:text-[#0f8e7e]"
+        >
           Export CSV
         </button>
       </div>

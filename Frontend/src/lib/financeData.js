@@ -1,50 +1,3 @@
-const EMPTY_FINANCE_DATA = {
-  transactions: [],
-  budgets: [],
-  reports: {
-    categorySpending: [],
-    monthlyComparison: [],
-    savingRatio: null,
-    incomeExpense: [],
-    topSpending: [],
-    snapshot: null,
-    cashFlow: [],
-    categoryTrends: [],
-  },
-  aiInsights: [],
-  selectedTransaction: null,
-};
-
-function parseStoredFinanceData() {
-  const storedValue = localStorage.getItem("finance_data");
-
-  if (!storedValue) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(storedValue);
-  } catch {
-    return {};
-  }
-}
-
-export function useFinanceData() {
-  const storedData = parseStoredFinanceData();
-
-  return {
-    isLoading: false,
-    transactions: storedData.transactions || EMPTY_FINANCE_DATA.transactions,
-    budgets: storedData.budgets || EMPTY_FINANCE_DATA.budgets,
-    reports: {
-      ...EMPTY_FINANCE_DATA.reports,
-      ...(storedData.reports || {}),
-    },
-    aiInsights: storedData.aiInsights || EMPTY_FINANCE_DATA.aiInsights,
-    selectedTransaction: storedData.selectedTransaction || EMPTY_FINANCE_DATA.selectedTransaction,
-  };
-}
-
 export function formatCurrency(value = 0, options = {}) {
   const sign = options.sign || "";
   const absoluteValue = Math.abs(Number(value) || 0);
@@ -92,29 +45,4 @@ export function getBudgetSummary(budgets = []) {
     remaining: totalBudget - totalSpent,
     overspent,
   };
-}
-
-export function appendTransactionToFinanceData(transaction) {
-  const storedData = parseStoredFinanceData();
-  const currentTransactions = storedData.transactions || EMPTY_FINANCE_DATA.transactions;
-  const nextTransaction = {
-    id: transaction.id,
-    type: transaction.type,
-    amount: Number(transaction.amount),
-    title: transaction.title,
-    description: transaction.title,
-    note: transaction.description || "",
-    categoryId: transaction.category_id,
-    date: transaction.transaction_date,
-    createdAt: transaction.created_at,
-  };
-
-  localStorage.setItem(
-    "finance_data",
-    JSON.stringify({
-      ...EMPTY_FINANCE_DATA,
-      ...storedData,
-      transactions: [nextTransaction, ...currentTransactions],
-    })
-  );
 }

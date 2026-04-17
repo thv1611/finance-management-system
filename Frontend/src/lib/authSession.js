@@ -49,6 +49,14 @@ export function persistAuthSession(authData) {
   localStorage.setItem("user", JSON.stringify(normalizeAuthUser(authData.user)));
 }
 
+export function persistNormalizedUser(user) {
+  if (!user) {
+    return;
+  }
+
+  localStorage.setItem("user", JSON.stringify(normalizeAuthUser(user)));
+}
+
 export function updateAccessToken(accessToken) {
   if (!accessToken) {
     return;
@@ -61,7 +69,6 @@ export function clearAuthSession() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user");
-  localStorage.removeItem("finance_data");
   sessionStorage.clear();
 }
 

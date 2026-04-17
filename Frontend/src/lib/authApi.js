@@ -35,6 +35,13 @@ export function refreshAccessToken(payload) {
   });
 }
 
+export function logout(payload) {
+  return request("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function googleAuthenticate(payload) {
   return request("/auth/google", {
     method: "POST",

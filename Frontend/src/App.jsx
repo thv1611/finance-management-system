@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import AIInsightsPage from "./pages/AIInsightsPage";
 import DashboardPage from "./pages/DashboardPage";
 import ReportsPage from "./pages/ReportsPage";
 import BudgetsPage from "./pages/BudgetsPage";
@@ -26,6 +27,14 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/forgot-password/verify" element={<ForgotPasswordOtpPage />} />
         <Route path="/forgot-password/reset" element={<ResetPasswordPage />} />
+        <Route
+          path="/ai-insights"
+          element={
+            <ProtectedRoute>
+              <AIInsightsPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={

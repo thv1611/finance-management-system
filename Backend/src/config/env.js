@@ -2,6 +2,16 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const normalizeProvider = (value) => {
+  const normalized = String(value || "gemini").trim().toLowerCase();
+  if (["gemini", "openai", "app"].includes(normalized)) {
+    return normalized;
+  }
+  return "gemini";
+};
+
+const aiProvider = normalizeProvider(process.env.AI_PROVIDER);
+
 const requiredEnvKeys = [
   "MAIL_HOST",
   "MAIL_PORT",
@@ -19,7 +29,14 @@ const databaseConfigKeys = hasDatabaseUrl
   ? []
   : ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
 
-const missingEnvKeys = [...databaseConfigKeys, ...requiredEnvKeys].filter(
+const aiConfigKeys =
+  aiProvider === "gemini"
+    ? ["GEMINI_API_KEY", "GEMINI_MODEL"]
+    : aiProvider === "openai"
+    ? ["OPENAI_API_KEY", "OPENAI_MODEL"]
+    : [];
+
+const missingEnvKeys = [...databaseConfigKeys, ...requiredEnvKeys, ...aiConfigKeys].filter(
   (key) => !process.env[key]
 );
 
@@ -59,5 +76,21 @@ module.exports = {
   otp: {
     expiresMinutes: Number(process.env.OTP_EXPIRES_MINUTES || 5),
     resendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS || 60),
+  },
+  ai: {
+    provider: aiProvider,
+    fallbackEnabled: String(process.env.AI_FALLBACK_ENABLED || "true").toLowerCase() !== "false",
+  },
+  gemini: {
+    apiKey: (process.env.GEMINI_API_KEY || "").trim(),
+    model: (process.env.GEMINI_MODEL || "gemini-2.5-flash").trim(),
+    baseUrl:
+      (process.env.GEMINI_BASE_URL ||
+        "https://generativelanguage.googleapis.com/v1beta").trim(),
+  },
+  openai: {
+    apiKey: (process.env.OPENAI_API_KEY || "").trim(),
+    model: (process.env.OPENAI_MODEL || "gpt-4o-mini").trim(),
+    baseUrl: (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").trim(),
   },
 };

@@ -9,8 +9,10 @@ import RecentTransactions from "../components/dashboard/RecentTransactions";
 import AIInsightCard from "../components/dashboard/AIInsightCard";
 import QuickActions from "../components/dashboard/QuickActions";
 import LoadingState from "../components/common/LoadingState";
+import { useNotificationFeed } from "../hooks/useNotificationFeed";
 import { getAuthSession } from "../lib/authSession";
 import { formatCurrency } from "../lib/financeData";
+import { buildDashboardInsight } from "../lib/insightBuilder";
 import {
   getDashboardBudgetSnapshot,
   getRecentDashboardTransactions,
@@ -59,6 +61,12 @@ function mapRecentTransaction(transaction) {
 
 export default function DashboardPage() {
   const { user } = getAuthSession();
+  const {
+    notifications,
+    unreadCount,
+    onOpenNotifications,
+    onDismissNotification,
+  } = useNotificationFeed();
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("neutral");
@@ -128,8 +136,11 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const hasTransactions = recentTransactions.length > 0;
-  const hasBudgetData = budgetSnapshot.items.length > 0;
+  const dashboardInsight = buildDashboardInsight({
+    summary,
+    recentTransactions,
+    budgetSnapshot,
+  });
   const stats = [
     {
       icon: "wallet",
@@ -169,7 +180,13 @@ export default function DashboardPage() {
       <DashboardSidebar user={user} activeItem="Dashboard" />
 
       <main className="relative z-0 lg:pl-[248px]">
-        <DashboardHeader user={user} />
+        <DashboardHeader
+          user={user}
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onOpenNotifications={onOpenNotifications}
+          onDismissNotification={onDismissNotification}
+        />
 
         <div className="mx-auto max-w-[1320px] px-4 pb-10 pt-4 md:px-8">
           <section className="mb-7">
@@ -200,7 +217,7 @@ export default function DashboardPage() {
               <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.75fr)]">
                 <RecentTransactions transactions={recentTransactions} />
                 <div className="space-y-6">
-                  <AIInsightCard hasData={hasTransactions || hasBudgetData} />
+                  <AIInsightCard {...dashboardInsight} />
                   <QuickActions />
                 </div>
               </section>

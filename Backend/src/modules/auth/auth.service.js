@@ -305,6 +305,20 @@ async function refreshAccessToken(payload) {
   return issueAuthTokens(user);
 }
 
+async function logout(payload) {
+  const { refresh_token: refreshToken } = payload;
+
+  const storedToken = await authRepository.findRefreshToken(refreshToken);
+
+  if (storedToken && !storedToken.is_revoked) {
+    await authRepository.revokeRefreshToken(refreshToken);
+  }
+
+  return {
+    message: "Logout successful.",
+  };
+}
+
 async function forgotPassword(payload) {
   const { email } = payload;
   const user = await authRepository.findUserByEmail(email);
@@ -508,6 +522,7 @@ module.exports = {
   resendVerificationOtp,
   login,
   refreshAccessToken,
+  logout,
   forgotPassword,
   verifyPasswordResetOtp,
   resetPassword,

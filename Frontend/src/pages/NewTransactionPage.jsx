@@ -1,11 +1,17 @@
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
-import { Icon } from "../components/dashboard/DashboardIcons";
 import NewTransactionForm from "../components/transactions/NewTransactionForm";
 import NewTransactionTopNav from "../components/transactions/NewTransactionTopNav";
+import { useNotificationFeed } from "../hooks/useNotificationFeed";
 import { getAuthSession } from "../lib/authSession";
 
 export default function NewTransactionPage() {
   const { user } = getAuthSession();
+  const {
+    notifications,
+    unreadCount,
+    onOpenNotifications,
+    onDismissNotification,
+  } = useNotificationFeed();
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#eef2f5] text-[#1f2d38]">
@@ -16,14 +22,15 @@ export default function NewTransactionPage() {
 
       <main className="relative z-0 lg:pl-[248px]">
         <div className="mx-auto max-w-[1180px] px-4 py-5 md:px-8">
-          <NewTransactionTopNav user={user} />
+          <NewTransactionTopNav
+            user={user}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onOpenNotifications={onOpenNotifications}
+            onDismissNotification={onDismissNotification}
+          />
           <NewTransactionForm />
         </div>
-
-        <button className="fixed bottom-7 right-7 grid h-12 w-12 place-items-center rounded-full bg-[#8ea6ff] text-white shadow-[0_18px_38px_rgba(96,122,216,0.28)] transition hover:-translate-y-1 hover:bg-[#6f8df0]">
-          <Icon name="settings" className="h-5 w-5" />
-          <span className="sr-only">Quick action</span>
-        </button>
       </main>
     </div>
   );

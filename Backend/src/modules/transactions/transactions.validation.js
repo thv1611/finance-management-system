@@ -27,6 +27,14 @@ const createTransactionValidation = [
     .optional({ values: "falsy" })
     .isString()
     .withMessage("Description must be text"),
+  body("receipt_data")
+    .optional({ values: "falsy" })
+    .isString()
+    .withMessage("Receipt data must be text"),
+  body("remove_receipt")
+    .optional()
+    .isBoolean()
+    .withMessage("remove_receipt must be true or false"),
   body("transaction_date")
     .notEmpty()
     .withMessage("Transaction date is required")
@@ -40,6 +48,11 @@ const transactionIdValidation = [
 ];
 
 const listTransactionsValidation = [
+  query("search")
+    .optional()
+    .isString()
+    .isLength({ max: 100 })
+    .withMessage("Search must be text and at most 100 characters"),
   query("type")
     .optional()
     .isIn(["income", "expense"])

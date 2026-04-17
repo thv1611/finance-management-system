@@ -9,6 +9,15 @@ function buildTransactionFilters(userId, options = {}) {
     clauses.push(`t.type = $${values.length}`);
   }
 
+  if (options.search) {
+    values.push(`%${options.search}%`);
+    clauses.push(`(
+      t.title ILIKE $${values.length}
+      OR COALESCE(t.description, '') ILIKE $${values.length}
+      OR COALESCE(c.name, '') ILIKE $${values.length}
+    )`);
+  }
+
   if (options.categoryIds?.length) {
     values.push(options.categoryIds);
     clauses.push(`t.category_id = ANY($${values.length}::int[])`);
@@ -63,6 +72,7 @@ async function getTransactionsByUser(userId, options = {}) {
   const countResult = await pool.query(
     `SELECT COUNT(*)::int AS total_count
      FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
      WHERE ${whereClause}`,
     values
   );
@@ -77,6 +87,7 @@ async function getTransactionsByUser(userId, options = {}) {
       t.amount,
       t.title,
       t.description,
+      t.receipt_url,
       t.transaction_date,
       t.created_at,
       t.updated_at,
@@ -121,6 +132,7 @@ async function findTransactionById(userId, transactionId) {
       t.amount,
       t.title,
       t.description,
+      t.receipt_url,
       t.transaction_date,
       t.created_at,
       t.updated_at,
@@ -143,6 +155,7 @@ async function createTransaction({
   amount,
   title,
   description,
+  receiptUrl,
   transactionDate,
 }) {
   const result = await pool.query(
@@ -153,11 +166,12 @@ async function createTransaction({
       amount,
       title,
       description,
+      receipt_url,
       transaction_date
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING id, user_id, category_id, type, amount, title, description, transaction_date, created_at, updated_at`,
-    [userId, categoryId, type, amount, title, description, transactionDate]
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    RETURNING id, user_id, category_id, type, amount, title, description, receipt_url, transaction_date, created_at, updated_at`,
+    [userId, categoryId, type, amount, title, description, receiptUrl || null, transactionDate]
   );
 
   return result.rows[0];
@@ -171,6 +185,7 @@ async function updateTransaction({
   amount,
   title,
   description,
+  receiptUrl,
   transactionDate,
 }) {
   const result = await pool.query(
@@ -180,12 +195,13 @@ async function updateTransaction({
          amount = $5,
          title = $6,
          description = $7,
-         transaction_date = $8,
+         receipt_url = $8,
+         transaction_date = $9,
          updated_at = NOW()
      WHERE user_id = $1
        AND id = $2
-     RETURNING id, user_id, category_id, type, amount, title, description, transaction_date, created_at, updated_at`,
-    [userId, transactionId, categoryId, type, amount, title, description, transactionDate]
+     RETURNING id, user_id, category_id, type, amount, title, description, receipt_url, transaction_date, created_at, updated_at`,
+    [userId, transactionId, categoryId, type, amount, title, description, receiptUrl || null, transactionDate]
   );
 
   return result.rows[0] || null;
@@ -196,7 +212,7 @@ async function deleteTransaction(userId, transactionId) {
     `DELETE FROM transactions
      WHERE user_id = $1
        AND id = $2
-     RETURNING id`,
+     RETURNING id, receipt_url`,
     [userId, transactionId]
   );
 

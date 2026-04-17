@@ -12,6 +12,8 @@ export default function TransactionsTable({
   onPageChange,
   onDelete,
   deletingId = null,
+  addTransactionHref = "/transactions/new",
+  editTransactionHref = (transactionId) => `/transactions/edit?id=${transactionId}`,
 }) {
   if (transactions.length === 0) {
     return (
@@ -20,6 +22,7 @@ export default function TransactionsTable({
           title="No transactions yet"
           message="Your transaction history will appear here after you add income or expenses."
           actionLabel="+ Add Transaction"
+          actionHref={addTransactionHref}
         />
       </section>
     );
@@ -65,7 +68,7 @@ export default function TransactionsTable({
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-3">
                     <Link
-                      to={`/transactions/edit?id=${row.id}`}
+                      to={editTransactionHref(row.id)}
                       className="text-sm font-black text-[#2d8ce9] transition hover:text-[#0f8e7e]"
                     >
                       Edit

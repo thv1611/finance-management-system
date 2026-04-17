@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Icon } from "../dashboard/DashboardIcons";
 import EmptyState from "../common/EmptyState";
 import { formatCurrency } from "../../lib/financeData";
@@ -7,9 +8,9 @@ export default function CategoryTrendsCard({ categories = [] }) {
     <section className="rounded-lg bg-white p-6 shadow-[0_22px_50px_rgba(35,66,85,0.065)]">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-black tracking-[-0.02em] text-[#25313b]">Category Trends</h2>
-        <a href="#" className="text-sm font-black text-[#13977f] transition hover:text-[#0c6f62]">
+        <Link to="/transactions" className="text-sm font-black text-[#13977f] transition hover:text-[#0c6f62]">
           View All
-        </a>
+        </Link>
       </div>
 
       {categories.length > 0 ? (

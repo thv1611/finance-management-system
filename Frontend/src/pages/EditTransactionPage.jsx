@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AuthMessage from "../components/auth/AuthMessage";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import LoadingState from "../components/common/LoadingState";
+import NotificationMenu from "../components/common/NotificationMenu";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import { Icon } from "../components/dashboard/DashboardIcons";
 import EditTransactionActions from "../components/transactions/EditTransactionActions";
@@ -9,6 +11,7 @@ import EditTransactionForm from "../components/transactions/EditTransactionForm"
 import QuickTipCard from "../components/transactions/QuickTipCard";
 import ReceiptPreviewCard from "../components/transactions/ReceiptPreviewCard";
 import TransactionSummaryPanel from "../components/transactions/TransactionSummaryPanel";
+import { useNotificationFeed } from "../hooks/useNotificationFeed";
 import { getAuthSession } from "../lib/authSession";
 import EmptyState from "../components/common/EmptyState";
 import { deleteTransaction, getCategories, getTransactionById, updateTransaction } from "../lib/transactionsApi";
@@ -17,7 +20,16 @@ export default function EditTransactionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = getAuthSession();
+  const {
+    notifications,
+    unreadCount,
+    onOpenNotifications,
+    onDismissNotification,
+  } = useNotificationFeed();
   const transactionId = Number(searchParams.get("id"));
+  const returnParams = new URLSearchParams(searchParams);
+  returnParams.delete("id");
+  const returnSearch = returnParams.toString() ? `?${returnParams.toString()}` : "";
   const [transaction, setTransaction] = useState(null);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +37,7 @@ export default function EditTransactionPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("neutral");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,6 +65,7 @@ export default function EditTransactionPage() {
           amount: Number(transactionData.amount || 0),
           date: transactionData.transaction_date,
           createdAt: transactionData.created_at,
+          receiptUrl: transactionData.receipt_url || null,
         });
         setCategories(categoriesResult.data || []);
       } catch (error) {
@@ -83,11 +97,12 @@ export default function EditTransactionPage() {
         amount: Number(result.data.amount || 0),
         date: result.data.transaction_date,
         createdAt: result.data.created_at,
+        receiptUrl: result.data.receipt_url || null,
       });
       setTone("neutral");
       setMessage("Transaction updated successfully.");
       window.setTimeout(() => {
-        navigate("/transactions");
+        navigate(`/transactions${returnSearch}`);
       }, 700);
     } catch (error) {
       setTone("error");
@@ -98,16 +113,11 @@ export default function EditTransactionPage() {
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm("Are you sure you want to delete this transaction?");
-
-    if (!confirmed) {
-      return;
-    }
-
     try {
       setIsDeleting(true);
       await deleteTransaction(transactionId);
-      navigate("/transactions");
+      setIsDeleteDialogOpen(false);
+      navigate(`/transactions${returnSearch}`);
     } catch (error) {
       setTone("error");
       setMessage(error.response?.message || error.message || "Unable to delete the transaction.");
@@ -135,14 +145,13 @@ export default function EditTransactionPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="grid h-12 w-12 place-items-center rounded-full bg-white/88 text-[#667684] shadow-[0_14px_35px_rgba(35,66,85,0.06)] transition hover:-translate-y-0.5 hover:text-[#0d9488]">
-                <Icon name="bell" className="h-5 w-5" />
-                <span className="sr-only">Notifications</span>
-              </button>
-              <button className="grid h-12 w-12 place-items-center rounded-full bg-white/88 text-[#667684] shadow-[0_14px_35px_rgba(35,66,85,0.06)] transition hover:-translate-y-0.5 hover:text-[#0d9488]">
-                <Icon name="info" className="h-5 w-5" />
-                <span className="sr-only">Help</span>
-              </button>
+              <NotificationMenu
+                items={notifications}
+                unreadCount={unreadCount}
+                onOpen={onOpenNotifications}
+                onDismiss={onDismissNotification}
+                buttonClassName="grid h-12 w-12 place-items-center rounded-full bg-white/88 text-[#667684] shadow-[0_14px_35px_rgba(35,66,85,0.06)] transition hover:-translate-y-0.5 hover:text-[#0d9488]"
+              />
             </div>
           </header>
 
@@ -156,14 +165,15 @@ export default function EditTransactionPage() {
             <section className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
               <div>
                 <EditTransactionForm
+                  key={`${transaction.id}-${transaction.updated_at || transaction.createdAt || "initial"}`}
                   transaction={transaction}
                   categories={categories}
                   onSubmit={handleSave}
                   isSubmitting={isSaving}
                 />
                 <EditTransactionActions
-                  onDelete={handleDelete}
-                  onCancel={() => navigate("/transactions")}
+                  onDelete={() => setIsDeleteDialogOpen(true)}
+                  onCancel={() => navigate(`/transactions${returnSearch}`)}
                   isDeleting={isDeleting}
                   isSubmitting={isSaving}
                   formId="edit-transaction-form"
@@ -186,6 +196,16 @@ export default function EditTransactionPage() {
           )}
         </div>
       </main>
+
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        title="Delete this transaction?"
+        description={`This will permanently remove ${transaction?.title || "this transaction"} from your history.`}
+        confirmLabel="Delete Transaction"
+        isConfirming={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+      />
     </div>
   );
 }

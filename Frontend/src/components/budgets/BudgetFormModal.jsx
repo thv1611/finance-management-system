@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 function formatAmountInput(value) {
   if (value === null || value === undefined) {
@@ -6,6 +6,15 @@ function formatAmountInput(value) {
   }
 
   return String(value);
+}
+
+function getInitialFormValues(initialValues) {
+  return {
+    category_id: initialValues?.category_id ? String(initialValues.category_id) : "",
+    month: initialValues?.month ? String(initialValues.month) : "",
+    year: initialValues?.year ? String(initialValues.year) : "",
+    amount_limit: formatAmountInput(initialValues?.amount_limit),
+  };
 }
 
 export default function BudgetFormModal({
@@ -18,27 +27,8 @@ export default function BudgetFormModal({
   onClose,
   onSubmit,
 }) {
-  const [formValues, setFormValues] = useState({
-    category_id: "",
-    month: "",
-    year: "",
-    amount_limit: "",
-  });
+  const [formValues, setFormValues] = useState(() => getInitialFormValues(initialValues));
   const [errors, setErrors] = useState({});
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    setFormValues({
-      category_id: initialValues?.category_id ? String(initialValues.category_id) : "",
-      month: initialValues?.month ? String(initialValues.month) : "",
-      year: initialValues?.year ? String(initialValues.year) : "",
-      amount_limit: formatAmountInput(initialValues?.amount_limit),
-    });
-    setErrors({});
-  }, [initialValues, isOpen]);
 
   if (!isOpen) {
     return null;

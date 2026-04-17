@@ -5,6 +5,7 @@ const {
   resendVerificationOtpController,
   loginController,
   refreshAccessTokenController,
+  logoutController,
   forgotPasswordController,
   verifyPasswordResetOtpController,
   resetPasswordController,
@@ -16,6 +17,7 @@ const {
   resendVerificationOtpValidation,
   loginValidation,
   refreshAccessTokenValidation,
+  logoutValidation,
   forgotPasswordValidation,
   verifyPasswordResetOtpValidation,
   resetPasswordValidation,
@@ -35,6 +37,7 @@ router.post(
 );
 router.post("/login", loginValidation, validateRequest, loginController);
 router.post("/refresh", refreshAccessTokenValidation, validateRequest, refreshAccessTokenController);
+router.post("/logout", logoutValidation, validateRequest, logoutController);
 router.post("/google", googleAuthValidation, validateRequest, googleAuthController);
 router.post("/forgot-password", forgotPasswordValidation, validateRequest, forgotPasswordController);
 router.post(

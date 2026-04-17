@@ -7,6 +7,7 @@ import BudgetTimeline from "../components/budgets/BudgetTimeline";
 import CategoryLimitsCard from "../components/budgets/CategoryLimitsCard";
 import RecentAlertsCard from "../components/budgets/RecentAlertsCard";
 import SmartInsightCard from "../components/budgets/SmartInsightCard";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import EmptyState from "../components/common/EmptyState";
 import LoadingState from "../components/common/LoadingState";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
@@ -76,6 +77,7 @@ export default function BudgetsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmBudget, setConfirmBudget] = useState(null);
   const budgetSummary = getBudgetSummary(budgets);
   const alerts = budgets
     .filter((budget) => budget.overspent || Number(budget.progress || 0) >= 80)
@@ -214,20 +216,17 @@ export default function BudgetsPage() {
     }
   }
 
-  async function handleDeleteBudget(budget) {
-    const confirmed = window.confirm(
-      `Delete the budget for ${budget.category_name} in ${getMonthLabel(budget.month, budget.year)}?`
-    );
-
-    if (!confirmed) {
+  async function handleDeleteBudget() {
+    if (!confirmBudget) {
       return;
     }
 
     try {
-      setDeletingId(budget.id);
-      await deleteBudget(budget.id);
+      setDeletingId(confirmBudget.id);
+      await deleteBudget(confirmBudget.id);
       setTone("neutral");
       setMessage("Budget deleted successfully.");
+      setConfirmBudget(null);
       setReloadKey((prev) => prev + 1);
     } catch (error) {
       setTone("error");
@@ -316,7 +315,7 @@ export default function BudgetsPage() {
                   budgets={budgets}
                   onCreateBudget={openCreateModal}
                   onEditBudget={openEditModal}
-                  onDeleteBudget={handleDeleteBudget}
+                  onDeleteBudget={setConfirmBudget}
                   deletingId={deletingId}
                 />
                 <div className="space-y-6">
@@ -331,6 +330,7 @@ export default function BudgetsPage() {
       </main>
 
       <BudgetFormModal
+        key={`${formMode}-${editingBudget?.id ?? "new"}-${isModalOpen ? "open" : "closed"}`}
         isOpen={isModalOpen}
         mode={formMode}
         categories={categories}
@@ -339,6 +339,20 @@ export default function BudgetsPage() {
         submitError={submitError}
         onClose={closeModal}
         onSubmit={handleSubmitBudget}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(confirmBudget)}
+        title="Delete this budget?"
+        description={
+          confirmBudget
+            ? `This will remove the budget for ${confirmBudget.category_name} in ${getMonthLabel(confirmBudget.month, confirmBudget.year)}.`
+            : ""
+        }
+        confirmLabel="Delete Budget"
+        isConfirming={Boolean(deletingId)}
+        onConfirm={handleDeleteBudget}
+        onCancel={() => setConfirmBudget(null)}
       />
     </div>
   );

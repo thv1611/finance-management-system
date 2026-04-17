@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AuthMessage from "../auth/AuthMessage";
 import { Icon } from "../dashboard/DashboardIcons";
-import { appendTransactionToFinanceData } from "../../lib/financeData";
 import { createTransaction, getCategories } from "../../lib/transactionsApi";
 import FormField from "./FormField";
+import ReceiptPreviewCard from "./ReceiptPreviewCard";
+import ReceiptUploadBox from "./ReceiptUploadBox";
 import { SelectInput } from "./TransactionInput";
 
 function TypeToggle({ value, onChange, disabled }) {
@@ -46,43 +47,6 @@ function PlainInput({ value, className = "", ...props }) {
   );
 }
 
-function AiSuggestionBanner() {
-  return (
-    <div className="rounded-lg bg-[#edf9f5] px-4 py-4 shadow-[inset_0_0_0_1px_rgba(19,151,127,0.08)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#13977f] text-white">
-            <Icon name="ai" className="h-4 w-4" />
-          </span>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#13977f]">AI Suggestion</p>
-            <p className="mt-1 text-sm font-black text-[#31404b]">Likely Dining based on 12:45 PM</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="rounded-lg bg-white px-4 py-2 text-sm font-black text-[#13977f] shadow-[0_10px_22px_rgba(35,66,85,0.06)] transition hover:-translate-y-0.5 hover:bg-[#13977f] hover:text-white"
-        >
-          Apply
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AttachmentArea() {
-  return (
-    <button
-      type="button"
-      className="flex min-h-[135px] w-full flex-col items-center justify-center rounded-lg border border-dashed border-[#d4e1e5] bg-[#fbfdfe] px-5 py-6 text-center transition hover:border-[#13977f] hover:bg-[#f2faf8]"
-    >
-      <Icon name="upload" className="h-5 w-5 text-[#7c8a96]" />
-      <span className="mt-4 text-sm font-black text-[#2d3a45]">Attach Receipt or Document</span>
-      <span className="mt-1 text-xs font-semibold text-[#9aa6b2]">PDF, JPG, PNG up to 10MB</span>
-    </button>
-  );
-}
-
 function formatAmountInput(value) {
   if (!value) {
     return "";
@@ -91,8 +55,18 @@ function formatAmountInput(value) {
   return Number(value).toLocaleString("vi-VN");
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read the selected receipt."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NewTransactionForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({
     type: "expense",
     amount: "",
@@ -100,8 +74,6 @@ export default function NewTransactionForm() {
     title: "",
     description: "",
     transaction_date: new Date().toISOString().slice(0, 10),
-    transaction_time: "12:45",
-    account: "Main Savings Bank",
   });
   const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState({});
@@ -109,6 +81,9 @@ export default function NewTransactionForm() {
   const [tone, setTone] = useState("neutral");
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [receiptData, setReceiptData] = useState("");
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState("");
+  const [receiptFileName, setReceiptFileName] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -200,6 +175,42 @@ export default function NewTransactionForm() {
     }));
   }
 
+  async function handleReceiptSelect(file) {
+    if (!file) {
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setTone("error");
+      setMessage("Receipt image must be PNG, JPG, or WEBP.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setTone("error");
+      setMessage("Receipt image must be 5MB or smaller.");
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setReceiptData(dataUrl);
+      setReceiptPreviewUrl(dataUrl);
+      setReceiptFileName(file.name);
+      setTone("neutral");
+      setMessage("");
+    } catch (error) {
+      setTone("error");
+      setMessage(error.message || "Unable to read the selected receipt.");
+    }
+  }
+
+  function handleRemoveReceipt() {
+    setReceiptData("");
+    setReceiptPreviewUrl("");
+    setReceiptFileName("");
+  }
+
   function validateForm() {
     const nextErrors = {};
     const numericAmount = Number(form.amount);
@@ -241,16 +252,16 @@ export default function NewTransactionForm() {
     try {
       setIsSubmitting(true);
 
-      const result = await createTransaction({
+      await createTransaction({
         type: form.type,
         amount: Number(form.amount),
         category_id: Number(form.category_id),
         title: form.title.trim(),
         description: form.description.trim(),
         transaction_date: form.transaction_date,
+        receipt_data: receiptData || undefined,
       });
 
-      appendTransactionToFinanceData(result.data);
       setTone("neutral");
       setMessage("Transaction saved successfully.");
 
@@ -261,13 +272,12 @@ export default function NewTransactionForm() {
         title: "",
         description: "",
         transaction_date: new Date().toISOString().slice(0, 10),
-        transaction_time: "12:45",
-        account: "Main Savings Bank",
       });
       setErrors({});
+      handleRemoveReceipt();
 
       window.setTimeout(() => {
-        navigate("/transactions");
+        navigate(`/transactions${location.search}`);
       }, 700);
     } catch (error) {
       const fieldMessage = error.response?.errors?.[0]?.msg;
@@ -339,35 +349,14 @@ export default function NewTransactionForm() {
           </FormField>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label="Date" hint={errors.transaction_date || undefined}>
-            <PlainInput
-              name="transaction_date"
-              type="date"
-              value={form.transaction_date}
-              onChange={handleChange}
-              aria-label="Date"
-            />
-          </FormField>
-          <FormField label="Time">
-            <PlainInput
-              name="transaction_time"
-              type="time"
-              value={form.transaction_time}
-              onChange={handleChange}
-              aria-label="Time"
-            />
-          </FormField>
-        </div>
-
-        <AiSuggestionBanner />
-
-        <FormField label="Account / Wallet">
-          <SelectInput name="account" value={form.account} onChange={handleChange}>
-            <option>Main Savings Bank</option>
-            <option>Main Wallet</option>
-            <option>Credit Card</option>
-          </SelectInput>
+        <FormField label="Date" hint={errors.transaction_date || undefined}>
+          <PlainInput
+            name="transaction_date"
+            type="date"
+            value={form.transaction_date}
+            onChange={handleChange}
+            aria-label="Date"
+          />
         </FormField>
 
         <FormField label="Note">
@@ -380,7 +369,20 @@ export default function NewTransactionForm() {
           />
         </FormField>
 
-        <AttachmentArea />
+        <FormField label="Receipt Image" hint="Optional. Upload a receipt to keep a visual reference.">
+          <div className="space-y-4">
+            <ReceiptUploadBox
+              onFileSelect={handleReceiptSelect}
+              disabled={isSubmitting}
+              fileName={receiptFileName}
+            />
+            <ReceiptPreviewCard
+              receiptUrl={receiptPreviewUrl}
+              onRemove={handleRemoveReceipt}
+              isRemoving={isSubmitting}
+            />
+          </div>
+        </FormField>
 
         <div className="pt-2 text-center">
           <button

@@ -11,7 +11,9 @@ import ReportsHeader from "../components/reports/ReportsHeader";
 import SavingRatioCard from "../components/reports/SavingRatioCard";
 import SpendingCategoryCard from "../components/reports/SpendingCategoryCard";
 import TopSpendingCard from "../components/reports/TopSpendingCard";
+import { useNotificationFeed } from "../hooks/useNotificationFeed";
 import { getAuthSession } from "../lib/authSession";
+import { buildReportsInsight } from "../lib/insightBuilder";
 import { getCategories } from "../lib/transactionsApi";
 import {
   getMonthlyComparisonReport,
@@ -39,6 +41,12 @@ const EMPTY_MONTHLY_COMPARISON = {
 
 export default function ReportsPage() {
   const { user } = getAuthSession();
+  const {
+    notifications,
+    unreadCount,
+    onOpenNotifications,
+    onDismissNotification,
+  } = useNotificationFeed();
   const [filters, setFilters] = useState({
     range: "week",
     categoryId: "",
@@ -148,12 +156,13 @@ export default function ReportsPage() {
     };
   }, [filters]);
 
-  const hasReportData =
-    summary.totalIncome > 0 ||
-    summary.totalExpense > 0 ||
-    spendingByCategory.length > 0 ||
-    topSpending.length > 0;
   const hasSummaryData = summary.totalIncome > 0 || summary.totalExpense > 0;
+  const reportInsight = buildReportsInsight({
+    summary,
+    spendingByCategory,
+    topSpending,
+    rangeLabel: filters.range,
+  });
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#eef2f5] text-[#1f2d38]">
@@ -164,7 +173,13 @@ export default function ReportsPage() {
 
       <main className="relative z-0 lg:pl-[248px]">
         <div className="mx-auto max-w-[1360px] px-4 py-6 md:px-8 lg:py-8">
-          <ReportsHeader user={user} />
+          <ReportsHeader
+            user={user}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onOpenNotifications={onOpenNotifications}
+            onDismissNotification={onDismissNotification}
+          />
           <ReportsFilters
             range={filters.range}
             onRangeChange={(range) => setFilters((prev) => ({ ...prev, range }))}
@@ -198,7 +213,7 @@ export default function ReportsPage() {
             </div>
           </section>
 
-          <AIAnalysisSection hasData={hasReportData} />
+          <AIAnalysisSection {...reportInsight} />
             </>
           )}
         </div>

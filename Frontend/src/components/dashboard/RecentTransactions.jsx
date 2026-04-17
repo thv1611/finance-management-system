@@ -41,7 +41,14 @@ export default function RecentTransactions({ transactions = [] }) {
           ))}
         </div>
       ) : (
-        <EmptyState title="No transactions yet" message="Add your first transaction to see recent activity." />
+        <EmptyState
+          title="No transactions yet"
+          message="Add your first transaction to see recent activity."
+          actionLabel="+ Add Transaction"
+          onAction={() => {
+            window.location.href = "/transactions/new";
+          }}
+        />
       )}
     </section>
   );

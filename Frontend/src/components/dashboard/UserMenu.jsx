@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearAuthSession } from "../../lib/authSession";
+import { clearAuthSession, getAuthSession } from "../../lib/authSession";
+import { logout } from "../../lib/authApi";
 import UserAvatar from "./UserAvatar";
 
 export default function UserMenu({ user, size = "sm", showUserSummary = false }) {
@@ -41,8 +42,18 @@ export default function UserMenu({ user, size = "sm", showUserSummary = false })
     navigate(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsOpen(false);
+    const { refreshToken } = getAuthSession();
+
+    if (refreshToken) {
+      try {
+        await logout({ refresh_token: refreshToken });
+      } catch {
+        // Keep client logout resilient even if the revoke request fails.
+      }
+    }
+
     clearAuthSession();
     navigate("/login", { replace: true });
   };
@@ -61,7 +72,7 @@ export default function UserMenu({ user, size = "sm", showUserSummary = false })
         {showUserSummary && (
           <span className="hidden text-right sm:block">
             <span className="block text-sm font-black text-[#25313b]">{displayName}</span>
-            <span className="block text-xs font-semibold text-[#9aa6b2]">Premium Member</span>
+            <span className="block text-xs font-semibold text-[#9aa6b2]">Signed in</span>
           </span>
         )}
         <UserAvatar user={user} size={size} />

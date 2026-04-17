@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import AuthMessage from "../auth/AuthMessage";
 import FormField from "./FormField";
+import ReceiptPreviewCard from "./ReceiptPreviewCard";
 import ReceiptUploadBox from "./ReceiptUploadBox";
 import { SelectInput, TextInput } from "./TransactionInput";
 import TransactionTypeToggle from "./TransactionTypeToggle";
@@ -13,36 +14,39 @@ function normalizeAmountInput(value) {
   return Number(value).toLocaleString("vi-VN");
 }
 
+function getInitialFormState(transaction) {
+  return {
+    title: transaction?.title || "",
+    amount: transaction ? String(Math.trunc(Number(transaction.amount || 0))) : "",
+    type: transaction?.type || "expense",
+    category_id: transaction?.category_id ? String(transaction.category_id) : "",
+    transaction_date: transaction?.transaction_date || "",
+    description: transaction?.description || "",
+    receiptUrl: transaction?.receiptUrl || transaction?.receipt_url || "",
+  };
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read the selected receipt."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function EditTransactionForm({
   transaction,
   categories = [],
   onSubmit,
   isSubmitting = false,
 }) {
-  const [form, setForm] = useState({
-    title: "",
-    amount: "",
-    type: "expense",
-    category_id: "",
-    transaction_date: "",
-    description: "",
-  });
+  const [form, setForm] = useState(() => getInitialFormState(transaction));
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!transaction) {
-      return;
-    }
-
-    setForm({
-      title: transaction.title || "",
-      amount: String(Math.trunc(Number(transaction.amount || 0))),
-      type: transaction.type || "expense",
-      category_id: String(transaction.category_id || ""),
-      transaction_date: transaction.transaction_date || "",
-      description: transaction.description || "",
-    });
-  }, [transaction]);
+  const [receiptData, setReceiptData] = useState("");
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState(() => getInitialFormState(transaction).receiptUrl);
+  const [receiptFileName, setReceiptFileName] = useState("");
+  const [shouldRemoveReceipt, setShouldRemoveReceipt] = useState(false);
 
   const filteredCategories = useMemo(
     () => categories.filter((category) => category.type === form.type),
@@ -74,6 +78,40 @@ export default function EditTransactionForm({
     }));
   }
 
+  async function handleReceiptSelect(file) {
+    if (!file) {
+      return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Receipt image must be PNG, JPG, or WEBP.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Receipt image must be 5MB or smaller.");
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setReceiptData(dataUrl);
+      setReceiptPreviewUrl(dataUrl);
+      setReceiptFileName(file.name);
+      setShouldRemoveReceipt(false);
+      setError("");
+    } catch (nextError) {
+      setError(nextError.message || "Unable to read the selected receipt.");
+    }
+  }
+
+  function handleRemoveReceipt() {
+    setReceiptData("");
+    setReceiptPreviewUrl("");
+    setReceiptFileName("");
+    setShouldRemoveReceipt(true);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
@@ -90,6 +128,8 @@ export default function EditTransactionForm({
       category_id: Number(form.category_id),
       transaction_date: form.transaction_date,
       description: form.description.trim(),
+      receipt_data: receiptData || undefined,
+      remove_receipt: shouldRemoveReceipt,
     });
   }
 
@@ -139,24 +179,16 @@ export default function EditTransactionForm({
           </FormField>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <FormField label="Account">
-            <SelectInput value={transaction?.account || "Unassigned"} onChange={() => {}}>
-              <option>{transaction?.account || "Unassigned"}</option>
-            </SelectInput>
-          </FormField>
-
-          <FormField label="Date & Time">
-            <input
-              type="date"
-              name="transaction_date"
-              value={form.transaction_date}
-              onChange={handleChange}
-              aria-label="Date and time"
-              className="h-12 w-full rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 text-sm font-bold text-[#25313b] outline-none transition focus:border-[#8fd8cd] focus:bg-white"
-            />
-          </FormField>
-        </div>
+        <FormField label="Date">
+          <input
+            type="date"
+            name="transaction_date"
+            value={form.transaction_date}
+            onChange={handleChange}
+            aria-label="Transaction date"
+            className="h-12 w-full rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 text-sm font-bold text-[#25313b] outline-none transition focus:border-[#8fd8cd] focus:bg-white"
+          />
+        </FormField>
 
         <FormField label="Reference Note">
           <textarea
@@ -168,8 +200,19 @@ export default function EditTransactionForm({
           />
         </FormField>
 
-        <FormField label="Attachment / Receipt">
-          <ReceiptUploadBox />
+        <FormField label="Receipt Image" hint="Optional. Replace or remove the current receipt image.">
+          <div className="space-y-4">
+            <ReceiptUploadBox
+              onFileSelect={handleReceiptSelect}
+              disabled={isSubmitting}
+              fileName={receiptFileName}
+            />
+            <ReceiptPreviewCard
+              receiptUrl={receiptPreviewUrl}
+              onRemove={handleRemoveReceipt}
+              isRemoving={isSubmitting}
+            />
+          </div>
         </FormField>
       </form>
     </section>
