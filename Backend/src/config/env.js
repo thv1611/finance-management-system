@@ -11,6 +11,7 @@ const normalizeProvider = (value) => {
 };
 
 const aiProvider = normalizeProvider(process.env.AI_PROVIDER);
+const aiSqlEnabled = String(process.env.AI_SQL_AGENT_ENABLED || "false").toLowerCase() === "true";
 
 const requiredEnvKeys = [
   "MAIL_HOST",
@@ -36,9 +37,16 @@ const aiConfigKeys =
     ? ["OPENAI_API_KEY", "OPENAI_MODEL"]
     : [];
 
-const missingEnvKeys = [...databaseConfigKeys, ...requiredEnvKeys, ...aiConfigKeys].filter(
-  (key) => !process.env[key]
-);
+const aiSqlConfigKeys = aiSqlEnabled
+  ? ["AI_SQL_SERVICE_URL", "AI_SQL_SERVICE_SHARED_SECRET"]
+  : [];
+
+const missingEnvKeys = [
+  ...databaseConfigKeys,
+  ...requiredEnvKeys,
+  ...aiConfigKeys,
+  ...aiSqlConfigKeys,
+].filter((key) => !process.env[key]);
 
 if (missingEnvKeys.length > 0) {
   throw new Error(
@@ -80,6 +88,12 @@ module.exports = {
   ai: {
     provider: aiProvider,
     fallbackEnabled: String(process.env.AI_FALLBACK_ENABLED || "true").toLowerCase() !== "false",
+  },
+  aiSql: {
+    enabled: aiSqlEnabled,
+    serviceUrl: (process.env.AI_SQL_SERVICE_URL || "http://127.0.0.1:8100").trim(),
+    sharedSecret: (process.env.AI_SQL_SERVICE_SHARED_SECRET || "").trim(),
+    timeoutMs: Number(process.env.AI_SQL_SERVICE_TIMEOUT_MS || 30000),
   },
   gemini: {
     apiKey: (process.env.GEMINI_API_KEY || "").trim(),

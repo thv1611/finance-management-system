@@ -14,6 +14,14 @@ const chatValidation = [
     .withMessage("message content must be between 1 and 4000 characters"),
 ];
 
+const askValidation = [
+  body("question")
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 1000 })
+    .withMessage("question must be between 1 and 1000 characters"),
+];
+
 function validateRequest(req, res, next) {
   const errors = validationResult(req);
 
@@ -29,6 +37,7 @@ function validateRequest(req, res, next) {
 }
 
 module.exports = {
+  askValidation,
   chatValidation,
   validateRequest,
 };
