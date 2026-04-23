@@ -17,11 +17,11 @@ export default function DashboardSidebar({ user, activeItem = "Dashboard" }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-[248px] p-5 lg:block">
       <div className="flex h-full flex-col rounded-[28px] border border-white/70 bg-white/74 px-5 py-7 shadow-[0_28px_80px_rgba(39,71,91,0.09)] ring-1 ring-white/60 backdrop-blur-xl">
-        <div className="mb-12 text-[36px] font-black tracking-[-0.08em]">
+        <Link to="/dashboard" className="mb-12 block text-[36px] font-black tracking-[-0.08em] transition-transform hover:scale-105">
           <span className="text-[#0aa7a4]">S</span>
           <span className="text-[#2c8dec]">Y</span>
           <span className="text-[#15c38f]">M</span>
-        </div>
+        </Link>
 
         <nav className="space-y-2">
           {navItems.map(([icon, label, path]) => {

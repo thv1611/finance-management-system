@@ -1,0 +1,90 @@
+{
+  "bookTitle": "Nguyên Lý Tài Chính Cá Nhân Tổng Hợp",
+  "sources": [
+    "Rich Dad Poor Dad – Robert Kiyosaki",
+    "The Richest Man in Babylon – George S. Clason",
+    "Quy tắc 50/30/20 – Elizabeth Warren"
+  ],
+  "topics": {
+    "saving": {
+      "title": "Tiết kiệm & Tích lũy",
+      "rules": [
+        {
+          "id": "SAV-01",
+          "name": "Quy tắc 50/30/20",
+          "source": "Elizabeth Warren – All Your Worth",
+          "content": "Chia thu nhập sau thuế thành 3 phần: 50% cho nhu cầu thiết yếu (nhà ở, thực phẩm, đi lại, bảo hiểm), 30% cho mong muốn cá nhân (giải trí, mua sắm, du lịch), và 20% cho tiết kiệm và trả nợ. Nếu chi tiêu thiết yếu vượt 50%, hãy cắt giảm mong muốn trước."
+        },
+        {
+          "id": "SAV-02",
+          "name": "Trả cho bản thân trước (Pay Yourself First)",
+          "source": "The Richest Man in Babylon – George S. Clason",
+          "content": "Mỗi khi nhận thu nhập, hãy trích tối thiểu 10% đưa vào quỹ tiết kiệm TRƯỚC KHI chi tiêu bất kỳ khoản nào. Đây là nguyên tắc nền tảng để xây dựng tài sản. Tiền tiết kiệm phải được coi như một khoản chi bắt buộc, không phải phần còn dư."
+        },
+        {
+          "id": "SAV-03",
+          "name": "Quỹ khẩn cấp 6 tháng",
+          "source": "Rich Dad Poor Dad – Robert Kiyosaki",
+          "content": "Luôn duy trì một quỹ khẩn cấp tương đương 3-6 tháng chi phí sinh hoạt. Quỹ này chỉ được sử dụng khi mất việc, ốm đau, hoặc sự cố bất ngờ. Không được dùng quỹ khẩn cấp cho mua sắm hay đầu tư."
+        }
+      ]
+    },
+    "spending": {
+      "title": "Chi tiêu thông minh",
+      "rules": [
+        {
+          "id": "SPD-01",
+          "name": "Phân biệt Tài sản và Tiêu sản",
+          "source": "Rich Dad Poor Dad – Robert Kiyosaki",
+          "content": "Tài sản là thứ đưa tiền VÀO túi bạn (cổ phiếu, bất động sản cho thuê, kinh doanh). Tiêu sản là thứ lấy tiền RA khỏi túi bạn (xe hơi, điện thoại đời mới, quần áo hàng hiệu). Hãy tập trung mua tài sản, hạn chế mua tiêu sản. Trước khi mua bất cứ thứ gì, hỏi: 'Thứ này đưa tiền vào hay lấy tiền ra khỏi túi mình?'"
+        },
+        {
+          "id": "SPD-02",
+          "name": "Quy tắc 24 giờ",
+          "source": "Nguyên lý tài chính hành vi",
+          "content": "Với mọi khoản chi tiêu không thiết yếu trên 500.000 VND, hãy đợi ít nhất 24 giờ trước khi quyết định mua. Điều này giúp tránh mua sắm theo cảm xúc. Sau 24 giờ, nếu vẫn thấy cần thiết, hãy mua. Phần lớn mọi người sẽ không còn muốn mua sau khi suy nghĩ lại."
+        },
+        {
+          "id": "SPD-03",
+          "name": "Kiểm soát chi tiêu nhỏ lặp lại",
+          "source": "The Richest Man in Babylon – George S. Clason",
+          "content": "Những khoản chi nhỏ hàng ngày (cà phê, trà sữa, ăn vặt) tích lũy thành số tiền lớn theo tháng. Hãy ghi chép lại tất cả chi tiêu trong 30 ngày, sau đó phân loại và cắt giảm những khoản lặp lại không cần thiết. Tiền tiết kiệm được từ đây nên chuyển thẳng vào quỹ tiết kiệm."
+        }
+      ]
+    },
+    "debt": {
+      "title": "Quản lý nợ",
+      "rules": [
+        {
+          "id": "DBT-01",
+          "name": "Phương pháp Snowball (Quả cầu tuyết)",
+          "source": "Dave Ramsey – The Total Money Makeover",
+          "content": "Liệt kê tất cả các khoản nợ từ nhỏ đến lớn. Trả tối thiểu cho tất cả, nhưng dồn thêm tiền dư vào khoản nợ NHỎ NHẤT trước. Khi khoản nhỏ nhất được thanh toán xong, chuyển toàn bộ số tiền đó sang khoản nợ tiếp theo. Phương pháp này tạo động lực tâm lý mạnh mẽ."
+        },
+        {
+          "id": "DBT-02",
+          "name": "Không vay nợ tiêu dùng",
+          "source": "Rich Dad Poor Dad – Robert Kiyosaki",
+          "content": "Chỉ vay nợ khi khoản vay tạo ra thu nhập lớn hơn lãi suất phải trả (nợ tốt – ví dụ: vay mua bất động sản cho thuê). Tuyệt đối tránh nợ tiêu dùng (vay mua điện thoại, quần áo, du lịch). Nợ xấu khiến bạn làm việc cho ngân hàng thay vì cho bản thân."
+        }
+      ]
+    },
+    "investment": {
+      "title": "Đầu tư cơ bản",
+      "rules": [
+        {
+          "id": "INV-01",
+          "name": "Để tiền làm việc cho bạn",
+          "source": "Rich Dad Poor Dad – Robert Kiyosaki",
+          "content": "Người giàu không làm việc vì tiền, họ để tiền làm việc cho họ. Sau khi có quỹ khẩn cấp đủ 6 tháng, hãy bắt đầu tìm hiểu các kênh đầu tư phù hợp: gửi tiết kiệm có kỳ hạn, quỹ chỉ số (index fund), hoặc bất động sản. Bắt đầu nhỏ, học dần, không bao giờ đầu tư vào thứ bạn không hiểu."
+        },
+        {
+          "id": "INV-02",
+          "name": "Đa dạng hóa danh mục",
+          "source": "The Richest Man in Babylon – George S. Clason",
+          "content": "Không bỏ tất cả trứng vào một giỏ. Chia tài sản đầu tư vào ít nhất 3 kênh khác nhau để giảm rủi ro. Ví dụ: 40% gửi tiết kiệm an toàn, 40% quỹ chỉ số, 20% đầu tư tăng trưởng. Tỷ lệ có thể thay đổi theo độ tuổi và khả năng chấp nhận rủi ro."
+        }
+      ]
+    }
+  }
+}
