@@ -196,19 +196,19 @@ export default function ReportsPage() {
             <LoadingState label="Loading reports..." />
           ) : (
             <>
-          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(280px,0.85fr)_minmax(420px,1.55fr)_minmax(260px,0.75fr)]">
-            <div className="space-y-6">
+          <section className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-[minmax(260px,0.85fr)_minmax(380px,1.55fr)_minmax(240px,0.75fr)]">
+            <div className="min-w-0 space-y-6">
               <SpendingCategoryCard data={spendingByCategory} />
               <SavingRatioCard ratio={hasSummaryData ? summary : null} />
               <ReportSnapshotCard snapshot={summary.snapshot} />
             </div>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <MonthlyComparisonCard data={monthlyComparison.series} range={filters.range} />
               <IncomeExpenseCard data={monthlyComparison.series} />
             </div>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <TopSpendingCard items={topSpending} />
             </div>
           </section>

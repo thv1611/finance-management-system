@@ -14,8 +14,8 @@ async function getSummary(userId) {
   return dashboardRepository.getDashboardSummary(userId);
 }
 
-async function getRecentTransactions(userId) {
-  return dashboardRepository.getRecentTransactions(userId, 5);
+async function getRecentTransactions(userId, limit) {
+  return dashboardRepository.getRecentTransactions(userId, limit || 5);
 }
 
 async function getBudgetSnapshot(userId) {
