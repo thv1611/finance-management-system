@@ -4,12 +4,16 @@ const {
   getTransactionsController,
   getTransactionController,
   createTransactionController,
+  parseReceiptController,
+  parseQuickEntryController,
   updateTransactionController,
   deleteTransactionController,
 } = require("./transactions.controller");
 const {
   listTransactionsValidation,
   createTransactionValidation,
+  parseReceiptValidation,
+  parseQuickEntryValidation,
   transactionIdValidation,
   validateRequest,
 } = require("./transactions.validation");
@@ -17,6 +21,8 @@ const {
 const router = express.Router();
 
 router.get("/", requireAuth, listTransactionsValidation, validateRequest, getTransactionsController);
+router.post("/parse-receipt", requireAuth, parseReceiptValidation, validateRequest, parseReceiptController);
+router.post("/parse-entry", requireAuth, parseQuickEntryValidation, validateRequest, parseQuickEntryController);
 router.get("/:id", requireAuth, transactionIdValidation, validateRequest, getTransactionController);
 router.post("/", requireAuth, createTransactionValidation, validateRequest, createTransactionController);
 router.put(

@@ -31,6 +31,20 @@ export function createTransaction(payload) {
   });
 }
 
+export function parseTransactionReceipt(payload) {
+  return request("/transactions/parse-receipt", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function parseTransactionQuickEntry(payload) {
+  return request("/transactions/parse-entry", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function updateTransaction(transactionId, payload) {
   return request(`/transactions/${transactionId}`, {
     method: "PUT",

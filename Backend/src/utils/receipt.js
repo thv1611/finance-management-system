@@ -74,6 +74,7 @@ async function deleteStoredReceipt(receiptUrl) {
 }
 
 module.exports = {
+  parseReceiptDataUrl,
   storeReceiptFromDataUrl,
   deleteStoredReceipt,
 };

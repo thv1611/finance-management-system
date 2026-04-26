@@ -28,6 +28,24 @@ async function createTransactionController(req, res, next) {
   }
 }
 
+async function parseReceiptController(req, res, next) {
+  try {
+    const receiptDraft = await transactionsService.parseReceiptDraft(req.user.id, req.body);
+    return successResponse(res, "Receipt scanned successfully", receiptDraft, 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function parseQuickEntryController(req, res, next) {
+  try {
+    const draft = await transactionsService.parseQuickEntryDraft(req.user.id, req.body);
+    return successResponse(res, "Quick entry parsed successfully", draft, 200);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateTransactionController(req, res, next) {
   try {
     const transaction = await transactionsService.updateTransaction(
@@ -54,6 +72,8 @@ module.exports = {
   getTransactionsController,
   getTransactionController,
   createTransactionController,
+  parseReceiptController,
+  parseQuickEntryController,
   updateTransactionController,
   deleteTransactionController,
 };

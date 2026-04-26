@@ -148,6 +148,39 @@ async function findTransactionById(userId, transactionId) {
   return result.rows[0] || null;
 }
 
+async function getRecentTransactionsForSuggestions(userId, type, limit = 60) {
+  const values = [userId, limit];
+  let typeClause = "";
+
+  if (type) {
+    values.splice(1, 0, type);
+    typeClause = "AND t.type = $2";
+  }
+
+  const limitPosition = type ? 3 : 2;
+
+  const result = await pool.query(
+    `SELECT
+      t.id,
+      t.type,
+      t.title,
+      t.description,
+      t.amount,
+      t.transaction_date,
+      c.id AS category_id,
+      c.name AS category_name
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     WHERE t.user_id = $1
+       ${typeClause}
+     ORDER BY t.transaction_date DESC, t.created_at DESC
+     LIMIT $${limitPosition}`,
+    values
+  );
+
+  return result.rows;
+}
+
 async function createTransaction({
   userId,
   categoryId,
@@ -223,6 +256,7 @@ module.exports = {
   getTransactionsByUser,
   getCurrentMonthSummary,
   findTransactionById,
+  getRecentTransactionsForSuggestions,
   createTransaction,
   updateTransaction,
   deleteTransaction,

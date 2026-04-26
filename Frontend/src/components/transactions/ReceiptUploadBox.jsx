@@ -29,10 +29,10 @@ export default function ReceiptUploadBox({
           <Icon name="upload" className="h-5 w-5" />
         </span>
         <span className="mt-4 text-sm font-black text-[#2d3a45]">
-          {fileName ? "Replace receipt image" : "Click to upload a receipt image"}
+          {fileName ? "Replace receipt image" : "Upload a receipt for AI autofill"}
         </span>
         <span className="mt-1 text-xs font-semibold text-[#9aa6b2]">
-          {fileName || "PNG, JPG, or WEBP up to 5MB"}
+          {fileName || "PNG, JPG, or WEBP up to 5MB. The app will scan it automatically."}
         </span>
       </span>
     </label>

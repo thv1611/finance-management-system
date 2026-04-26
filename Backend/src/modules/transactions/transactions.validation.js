@@ -43,6 +43,25 @@ const createTransactionValidation = [
     .withMessage("Transaction date must be a valid date"),
 ];
 
+const parseReceiptValidation = [
+  body("receipt_data")
+    .notEmpty()
+    .withMessage("Receipt image is required")
+    .bail()
+    .isString()
+    .withMessage("Receipt image must be a valid data URL"),
+];
+
+const parseQuickEntryValidation = [
+  body("entry_text")
+    .notEmpty()
+    .withMessage("Entry text is required")
+    .bail()
+    .isString()
+    .isLength({ min: 3, max: 500 })
+    .withMessage("Entry text must be between 3 and 500 characters"),
+];
+
 const transactionIdValidation = [
   param("id").isInt({ min: 1 }).withMessage("Transaction id must be valid"),
 ];
@@ -96,6 +115,8 @@ function validateRequest(req, res, next) {
 module.exports = {
   listTransactionsValidation,
   createTransactionValidation,
+  parseReceiptValidation,
+  parseQuickEntryValidation,
   transactionIdValidation,
   validateRequest,
 };
