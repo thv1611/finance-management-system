@@ -5,11 +5,13 @@ const {
   getSpendingByCategoryController,
   getMonthlyComparisonController,
   getTopSpendingController,
+  exportReportsCsvController,
 } = require("./reports.controller");
 const { reportsQueryValidation, validateRequest } = require("./reports.validation");
 
 const router = express.Router();
 
+router.get("/export.csv", requireAuth, reportsQueryValidation, validateRequest, exportReportsCsvController);
 router.get("/summary", requireAuth, reportsQueryValidation, validateRequest, getReportsSummaryController);
 router.get(
   "/spending-by-category",

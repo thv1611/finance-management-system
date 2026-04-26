@@ -1,6 +1,6 @@
 import { Icon } from "./DashboardIcons";
 
-export default function StatCard({ icon, label, amount, trend, tone = "positive" }) {
+export default function StatCard({ icon, label, amount, trend, tone = "positive", caption = "" }) {
   const isPositive = tone === "positive";
 
   return (
@@ -19,6 +19,7 @@ export default function StatCard({ icon, label, amount, trend, tone = "positive"
       </div>
       <p className="text-xs font-bold uppercase tracking-[0.08em] text-[#9ba8b4]">{label}</p>
       <p className="mt-2 text-2xl font-black tracking-[-0.03em] text-[#1f2d38]">{amount}</p>
+      {caption ? <p className="mt-2 text-sm font-semibold leading-5 text-[#7d8a96]">{caption}</p> : null}
     </article>
   );
 }

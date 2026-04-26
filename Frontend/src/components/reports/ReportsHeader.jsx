@@ -28,6 +28,8 @@ export default function ReportsHeader({
   unreadCount = 0,
   onOpenNotifications,
   onDismissNotification,
+  onExportCsv,
+  isExporting = false,
 }) {
   return (
     <header className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -41,6 +43,15 @@ export default function ReportsHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onExportCsv}
+          disabled={isExporting}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#1f2d38] px-4 py-3 text-sm font-black text-white shadow-[0_16px_36px_rgba(26,45,56,0.18)] transition hover:-translate-y-0.5 hover:bg-[#16222b] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <Icon name="file" className="h-4 w-4" />
+          {isExporting ? "Exporting..." : "Export CSV"}
+        </button>
         <NotificationMenu
           items={notifications}
           unreadCount={unreadCount}

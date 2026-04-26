@@ -37,9 +37,21 @@ async function getTopSpendingController(req, res, next) {
   }
 }
 
+async function exportReportsCsvController(req, res, next) {
+  try {
+    const reportFile = await reportsService.exportCsv(req.user.id, req.query);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${reportFile.filename}"`);
+    return res.status(200).send(reportFile.content);
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   getReportsSummaryController,
   getSpendingByCategoryController,
   getMonthlyComparisonController,
   getTopSpendingController,
+  exportReportsCsvController,
 };

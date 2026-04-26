@@ -5,27 +5,34 @@ import { formatCurrency } from "../../lib/financeData";
 
 export default function RecentTransactions({ transactions = [] }) {
   return (
-    <section className="rounded-lg bg-white p-5 shadow-[0_20px_45px_rgba(35,66,85,0.06)]">
+    <section className="rounded-[28px] bg-white p-6 shadow-[0_20px_45px_rgba(35,66,85,0.06)]">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-lg font-black tracking-[-0.02em] text-[#25313b]">Recent Transactions</h2>
+        <div>
+          <h2 className="text-lg font-black tracking-[-0.02em] text-[#25313b]">Recent Transactions</h2>
+          <p className="mt-1 text-sm font-semibold text-[#8e9aa6]">A quick read on your latest money movement.</p>
+        </div>
         <Link to="/transactions" className="text-sm font-bold text-[#12987f] transition hover:text-[#0b6f63]">
           View all
         </Link>
       </div>
 
       {transactions.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {transactions.map((transaction) => (
             <div
               key={transaction.id}
-              className="flex items-center gap-4 rounded-lg p-2 transition hover:bg-[#f7fafb]"
+              className="flex items-center gap-4 rounded-2xl border border-[#edf2f5] bg-[linear-gradient(180deg,#ffffff_0%,#fbfdfe_100%)] p-3 transition hover:-translate-y-0.5 hover:border-[#d8e7ea] hover:shadow-[0_18px_34px_rgba(35,66,85,0.06)]"
             >
               <div className="grid h-11 w-11 place-items-center rounded-lg bg-[#eef3f5] text-[#5c6b78]">
                 <Icon name={transaction.icon || "card"} className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-[#283641]">{transaction.description}</p>
-                <p className="mt-1 text-xs font-semibold text-[#9aa6b2]">{transaction.category}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-[#9aa6b2]">
+                  <span>{transaction.category}</span>
+                  <span className="h-1 w-1 rounded-full bg-[#c7d3db]" />
+                  <span>{transaction.date}</span>
+                </div>
               </div>
               <div className="text-right">
                 <p

@@ -5,6 +5,8 @@ import AuthLayout from "../components/auth/AuthLayout";
 import AuthMessage from "../components/auth/AuthMessage";
 import { requestPasswordReset } from "../lib/authApi";
 
+const PASSWORD_RESET_EMAIL_KEY = "password_reset_email";
+
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -21,6 +23,7 @@ export default function ForgotPasswordPage() {
       const result = await requestPasswordReset({ email });
       setTone("neutral");
       setMessage(result.message);
+      sessionStorage.setItem(PASSWORD_RESET_EMAIL_KEY, email);
       navigate("/forgot-password/verify", {
         state: {
           email,

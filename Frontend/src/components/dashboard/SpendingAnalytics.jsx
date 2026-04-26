@@ -39,6 +39,22 @@ function buildPolyline(values, width, height, padding, maxValue) {
     .join(" ");
 }
 
+function buildAreaPath(values, width, height, padding, maxValue) {
+  const points = buildChartPoints(values, width, height, padding, maxValue);
+
+  if (!points.length) {
+    return "";
+  }
+
+  const start = points[0];
+  const end = points[points.length - 1];
+  const linePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+    .join(" ");
+
+  return `${linePath} L ${end.x} ${height - padding} L ${start.x} ${height - padding} Z`;
+}
+
 function buildChartPoints(values, width, height, padding, maxValue) {
   if (!values.length) {
     return [];
@@ -62,7 +78,7 @@ export default function SpendingAnalytics({ data: initialData }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [hoveredIndex, setHoveredIndex] = useState(null);
-  const series = data?.series || [];
+  const series = useMemo(() => data?.series || [], [data]);
   const hasData = series.some((item) => Number(item.income || 0) > 0 || Number(item.expense || 0) > 0);
   const labels = series.map((item) => item.label);
   const maxValue = Math.max(data?.max_value || 0, 1);
@@ -95,6 +111,34 @@ export default function SpendingAnalytics({ data: initialData }) {
     income: incomeChartPoints[hoveredIndex],
     expense: expenseChartPoints[hoveredIndex],
   };
+  const incomeAreaPath = useMemo(
+    () => buildAreaPath(incomeValues, CHART_WIDTH, CHART_HEIGHT, CHART_PADDING, maxValue),
+    [incomeValues, maxValue]
+  );
+  const expenseAreaPath = useMemo(
+    () => buildAreaPath(expenseValues, CHART_WIDTH, CHART_HEIGHT, CHART_PADDING, maxValue),
+    [expenseValues, maxValue]
+  );
+  const totalIncome = incomeValues.reduce((sum, value) => sum + value, 0);
+  const totalExpense = expenseValues.reduce((sum, value) => sum + value, 0);
+  const netFlow = totalIncome - totalExpense;
+  const peakPeriod = useMemo(() => {
+    if (!series.length) {
+      return null;
+    }
+
+    return series.reduce((highest, item) => {
+      const currentPeak = Math.max(Number(item.income || 0), Number(item.expense || 0));
+      if (!highest || currentPeak > highest.value) {
+        return {
+          label: item.label,
+          value: currentPeak,
+        };
+      }
+
+      return highest;
+    }, null);
+  }, [series]);
 
   useEffect(() => {
     if (!initialData) {
@@ -146,14 +190,49 @@ export default function SpendingAnalytics({ data: initialData }) {
     { key: "income", label: "Income", color: "#10966f", visible: view !== "expense" },
     { key: "expense", label: "Expenses", color: "#2c8dec", visible: view !== "income" },
   ].filter((item) => item.visible);
+  const summaryCards = [
+    {
+      label: "Flow in view",
+      value: formatCurrency(view === "expense" ? totalExpense : view === "income" ? totalIncome : netFlow),
+      tone:
+        view === "expense"
+          ? "text-[#2c8dec]"
+          : netFlow >= 0
+            ? "text-[#10966f]"
+            : "text-[#d65d65]",
+      description:
+        view === "both"
+          ? netFlow >= 0
+            ? "Net flow remains positive."
+            : "Outflow is ahead of inflow."
+          : view === "income"
+            ? "Total visible income in this range."
+            : "Total visible expense in this range.",
+    },
+    {
+      label: "Peak period",
+      value: peakPeriod?.label || "Waiting",
+      tone: "text-[#25313b]",
+      description: peakPeriod ? `${formatCurrency(peakPeriod.value)} was the highest point.` : "Add more activity to reveal peaks.",
+    },
+    {
+      label: "Active range",
+      value: tabs.find((item) => item.value === range)?.label || "Monthly",
+      tone: "text-[#25313b]",
+      description: viewOptions.find((item) => item.value === view)?.label || "Income + Expense",
+    },
+  ];
 
   return (
-    <section className="rounded-lg bg-white p-5 shadow-[0_20px_45px_rgba(35,66,85,0.06)]">
+    <section className="self-start overflow-hidden rounded-lg bg-white p-5 shadow-[0_20px_45px_rgba(35,66,85,0.06)]">
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-lg font-black tracking-[-0.02em] text-[#25313b]">Spending Analytics</h2>
+          <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-[#7c8996]">
+            Watch how income and expenses move across time, then spot where momentum starts shifting.
+          </p>
           {hasData ? (
-            <div className="mt-2 flex items-center gap-4 text-xs font-bold text-[#7f8c98]">
+            <div className="mt-3 flex items-center gap-4 text-xs font-bold text-[#7f8c98]">
               {legendItems.map((item) => (
                 <span key={item.key} className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -199,7 +278,23 @@ export default function SpendingAnalytics({ data: initialData }) {
         </div>
       </div>
 
-      <div className="relative h-[300px] overflow-hidden rounded-lg bg-gradient-to-b from-white to-[#fbfdfe]">
+      <div className="mb-5 grid gap-3 lg:grid-cols-3">
+        {summaryCards.map((card) => (
+          <div
+            key={card.label}
+            className="rounded-2xl border border-[#edf2f5] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbfc_100%)] px-4 py-3 shadow-[0_14px_30px_rgba(35,66,85,0.04)]"
+          >
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#93a0ac]">{card.label}</p>
+            <p className={`mt-2 text-xl font-black tracking-[-0.03em] ${card.tone}`}>{card.value}</p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-[#7a8794]">{card.description}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative h-[340px] overflow-hidden rounded-[28px] border border-[#edf3f5] bg-[radial-gradient(circle_at_top_left,#f4fbf9_0%,#ffffff_34%,#f7fbff_100%)]">
+        <div className="pointer-events-none absolute -left-10 top-[-60px] h-36 w-36 rounded-full bg-[#a7f0dd]/40 blur-3xl" />
+        <div className="pointer-events-none absolute right-[-30px] top-10 h-40 w-40 rounded-full bg-[#b9d7ff]/45 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-[-70px] left-[18%] h-44 w-44 rounded-full bg-[#d7f7f1]/40 blur-3xl" />
         {isLoading ? (
           <div className="flex h-full animate-pulse flex-col justify-center px-6">
             <div className="h-4 w-40 rounded-full bg-[#e4ecef]" />
@@ -207,15 +302,41 @@ export default function SpendingAnalytics({ data: initialData }) {
           </div>
         ) : hasData ? (
           <>
+            <div className="pointer-events-none absolute left-6 top-6 rounded-full bg-white/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#7d8a95] shadow-[0_12px_30px_rgba(35,66,85,0.08)]">
+              Dynamic Trend View
+            </div>
             <svg
               className="h-full w-full"
               viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
               preserveAspectRatio="none"
               aria-label={`${range} spending line chart`}
             >
-            {[60, 120, 180, 240].map((y) => (
-              <line key={y} x1="20" x2="660" y1={y} y2={y} stroke="#edf2f5" strokeWidth="1" />
-            ))}
+              <defs>
+                <linearGradient id="incomeAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10966f" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#10966f" stopOpacity="0.02" />
+                </linearGradient>
+                <linearGradient id="expenseAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2c8dec" stopOpacity="0.26" />
+                  <stop offset="100%" stopColor="#2c8dec" stopOpacity="0.02" />
+                </linearGradient>
+                <filter id="chartGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="6" result="coloredBlur" />
+                  <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {[60, 120, 180, 240].map((y) => (
+                <line key={y} x1="20" x2="660" y1={y} y2={y} stroke="#e9f0f4" strokeWidth="1" />
+              ))}
+              {view !== "expense" && incomeAreaPath ? (
+                <path d={incomeAreaPath} fill="url(#incomeAreaGradient)" />
+              ) : null}
+              {view !== "income" && expenseAreaPath ? (
+                <path d={expenseAreaPath} fill="url(#expenseAreaGradient)" />
+              ) : null}
               {view !== "expense" ? (
                 <polyline
                   fill="none"
@@ -224,6 +345,7 @@ export default function SpendingAnalytics({ data: initialData }) {
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  filter="url(#chartGlow)"
                 />
               ) : null}
               {view !== "income" ? (
@@ -234,6 +356,7 @@ export default function SpendingAnalytics({ data: initialData }) {
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  filter="url(#chartGlow)"
                 />
               ) : null}
               {activePoint ? (
@@ -282,7 +405,7 @@ export default function SpendingAnalytics({ data: initialData }) {
             </svg>
             {activePoint ? (
               <div
-                className="pointer-events-none absolute z-10 min-w-[148px] rounded-lg border border-[#dce6ea] bg-white/96 px-3 py-2 shadow-[0_16px_32px_rgba(35,66,85,0.14)]"
+                className="pointer-events-none absolute z-10 min-w-[168px] rounded-2xl border border-[#dce6ea] bg-white/96 px-3 py-3 shadow-[0_18px_36px_rgba(35,66,85,0.14)] backdrop-blur-sm"
                 style={{
                   left: `${((activePoint.income?.x || activePoint.expense?.x || CHART_PADDING) / CHART_WIDTH) * 100}%`,
                   top: `${((Math.min(activePoint.income?.y ?? CHART_HEIGHT, activePoint.expense?.y ?? CHART_HEIGHT) - 18) / CHART_HEIGHT) * 100}%`,
@@ -301,13 +424,20 @@ export default function SpendingAnalytics({ data: initialData }) {
           </>
         ) : error ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <div className="mb-4 h-12 w-12 rounded-lg bg-[#fff1f1]" />
+            <div className="relative mb-5 h-20 w-20">
+              <div className="absolute inset-0 rounded-full bg-[#ffe4e4] blur-xl" />
+              <div className="absolute inset-3 rounded-2xl bg-[#fff1f1]" />
+            </div>
             <p className="text-lg font-black text-[#25313b]">Unable to load analytics</p>
             <p className="mt-2 max-w-sm text-sm font-semibold leading-6 text-[#7a8794]">{error}</p>
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <div className="mb-4 h-12 w-12 rounded-lg bg-[#e7f7f0]" />
+            <div className="relative mb-5 flex h-24 w-24 items-center justify-center">
+              <div className="absolute h-24 w-24 animate-pulse rounded-full border border-[#cdeee5]" />
+              <div className="absolute h-16 w-16 rounded-full border border-[#b7e3d7]" />
+              <div className="h-10 w-10 rounded-full bg-[#dbf5ee]" />
+            </div>
             <p className="text-lg font-black text-[#25313b]">No spending data yet</p>
             <p className="mt-2 max-w-sm text-sm font-semibold leading-6 text-[#7a8794]">
               Add transactions to unlock analytics and trends.

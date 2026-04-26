@@ -264,9 +264,71 @@ async function getTopSpending(userId, query) {
   }));
 }
 
+function escapeCsvValue(value) {
+  const stringValue = String(value ?? "");
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, "\"\"")}"`;
+  }
+
+  return stringValue;
+}
+
+function buildCsv(rows) {
+  return rows
+    .map((row) => row.map((value) => escapeCsvValue(value)).join(","))
+    .join("\n");
+}
+
+async function exportCsv(userId, query) {
+  const filters = normalizeQuery(query);
+  const [summary, spendingByCategory, topSpending, monthlyComparison] = await Promise.all([
+    getSummary(userId, query),
+    getSpendingByCategory(userId, query),
+    getTopSpending(userId, query),
+    getMonthlyComparison(userId, query),
+  ]);
+
+  const sections = [
+    ["Finance Management Report Export"],
+    [`Range`, summary.range],
+    ["Start Date", summary.startDate],
+    ["End Date", summary.endDate],
+    [""],
+    ["Summary"],
+    ["Metric", "Value"],
+    ["Total Income", summary.totalIncome],
+    ["Total Expense", summary.totalExpense],
+    ["Savings", summary.savings],
+    ["Saving Ratio (%)", summary.savingRatio],
+    [""],
+    ["Spending By Category"],
+    ["Category", "Amount", "Transactions", "Percent"],
+    ...spendingByCategory.map((item) => [
+      item.name,
+      item.amount,
+      item.transactionCount,
+      item.percent,
+    ]),
+    [""],
+    ["Top Spending"],
+    ["Category", "Amount", "Transactions"],
+    ...topSpending.map((item) => [item.name, item.amount, item.count]),
+    [""],
+    ["Monthly Comparison"],
+    ["Label", "Income", "Expense"],
+    ...monthlyComparison.series.map((item) => [item.label, item.income, item.expense]),
+  ];
+
+  return {
+    filename: `finance-report-${summary.range}-${summary.startDate}-to-${summary.endDate}.csv`,
+    content: buildCsv(sections),
+  };
+}
+
 module.exports = {
   getSummary,
   getSpendingByCategory,
   getMonthlyComparison,
   getTopSpending,
+  exportCsv,
 };

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthInput from "../components/auth/AuthInput";
 import AuthLayout from "../components/auth/AuthLayout";
 import GoogleAuthButton from "../components/auth/GoogleAuthButton";
@@ -10,6 +10,7 @@ import { useGoogleAuth } from "../hooks/useGoogleAuth";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -22,6 +23,13 @@ export default function LoginPage() {
     mode: "login",
     navigate,
   });
+
+  useEffect(() => {
+    if (location.state?.sessionExpired) {
+      setTone("error");
+      setMessage("You were logged out after 30 minutes of inactivity. Please sign in again.");
+    }
+  }, [location.state]);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -45,7 +53,7 @@ export default function LoginPage() {
       persistAuthSession(result.data);
       setTone("neutral");
       setMessage("Login successful.");
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setTone("error");
       setMessage(error.response?.message || "Login failed. Please try again.");

@@ -56,6 +56,9 @@ if (missingEnvKeys.length > 0) {
 
 module.exports = {
   port: process.env.PORT || 5000,
+  app: {
+    baseUrl: (process.env.APP_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).trim(),
+  },
   db: {
     connectionString: process.env.DATABASE_URL || "",
     host: process.env.DB_HOST,

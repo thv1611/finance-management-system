@@ -1,3 +1,6 @@
+export const AUTH_LAST_ACTIVITY_KEY = "auth_last_activity_at";
+export const AUTH_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+
 function getStoredName(user) {
   return (
     user?.name ||
@@ -47,6 +50,7 @@ export function persistAuthSession(authData) {
   localStorage.setItem("access_token", authData.access_token);
   localStorage.setItem("refresh_token", authData.refresh_token);
   localStorage.setItem("user", JSON.stringify(normalizeAuthUser(authData.user)));
+  markAuthActivity();
 }
 
 export function persistNormalizedUser(user) {
@@ -63,12 +67,29 @@ export function updateAccessToken(accessToken) {
   }
 
   localStorage.setItem("access_token", accessToken);
+  markAuthActivity();
+}
+
+export function markAuthActivity(timestamp = Date.now()) {
+  localStorage.setItem(AUTH_LAST_ACTIVITY_KEY, String(timestamp));
+}
+
+export function getAuthLastActivity() {
+  const rawValue = localStorage.getItem(AUTH_LAST_ACTIVITY_KEY);
+  const parsedValue = Number(rawValue);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return parsedValue;
 }
 
 export function clearAuthSession() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   localStorage.removeItem("user");
+  localStorage.removeItem(AUTH_LAST_ACTIVITY_KEY);
   sessionStorage.clear();
 }
 

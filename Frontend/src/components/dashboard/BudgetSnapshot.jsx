@@ -37,22 +37,55 @@ export default function BudgetSnapshot({ snapshot }) {
               const limit = Number(budget.amount_limit || budget.limit || 0);
               const spent = Number(budget.spent || 0);
               const progress = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+              const isOverspent = Number(budget.spent || 0) > limit;
+              const isWarning = !isOverspent && progress >= 80;
+              const barColor = isOverspent
+                ? "bg-[#e05b62]"
+                : isWarning
+                  ? "bg-[#f0a33b]"
+                  : "bg-[#13a884]";
+              const statusLabel = isOverspent
+                ? "Over limit"
+                : isWarning
+                  ? "Watch closely"
+                  : "Healthy";
 
               return (
-                <div key={budget.id || budget.category_name}>
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="font-bold text-[#3c4a55]">
-                      {budget.category_name || budget.name}
-                    </span>
-                    <span className="font-semibold text-[#9aa6b2]">
-                      {formatCurrency(spent)} / {formatCurrency(limit)}
+                <div key={budget.id || budget.category_name} className="rounded-xl border border-[#edf2f5] p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                    <div>
+                      <span className="font-bold text-[#3c4a55]">
+                        {budget.category_name || budget.name}
+                      </span>
+                      <p className="mt-1 text-xs font-semibold text-[#9aa6b2]">
+                        {formatCurrency(spent)} / {formatCurrency(limit)}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] ${
+                        isOverspent
+                          ? "bg-[#fff1f1] text-[#d9515c]"
+                          : isWarning
+                            ? "bg-[#fff5e8] text-[#bf7d11]"
+                            : "bg-[#eaf8f2] text-[#138a70]"
+                      }`}
+                    >
+                      {statusLabel}
                     </span>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-[#edf2f5]">
                     <div
-                      className="h-full rounded-full bg-[#13a884] transition-all"
+                      className={`h-full rounded-full transition-all ${barColor}`}
                       style={{ width: `${progress}%` }}
                     />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs font-bold uppercase tracking-[0.06em] text-[#98a5b1]">
+                    <span>{Number(progress).toFixed(0)}% used</span>
+                    <span>
+                      {isOverspent
+                        ? `${formatCurrency(spent - limit)} over`
+                        : `${formatCurrency(Math.max(limit - spent, 0))} left`}
+                    </span>
                   </div>
                 </div>
               );

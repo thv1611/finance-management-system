@@ -1,6 +1,7 @@
 const categoriesRepository = require("../categories/categories.repository");
 const transactionsRepository = require("./transactions.repository");
 const { deleteStoredReceipt, storeReceiptFromDataUrl } = require("../../utils/receipt");
+const env = require("../../config/env");
 
 function formatReceiptUrl(receiptUrl) {
   if (!receiptUrl) {
@@ -11,7 +12,7 @@ function formatReceiptUrl(receiptUrl) {
     return receiptUrl;
   }
 
-  return `http://localhost:5000${receiptUrl}`;
+  return `${env.app.baseUrl.replace(/\/$/, "")}${receiptUrl}`;
 }
 
 function mapTransactionResponse(transaction) {

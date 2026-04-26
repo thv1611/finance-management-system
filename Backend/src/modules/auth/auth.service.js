@@ -331,6 +331,12 @@ async function forgotPassword(payload) {
     };
   }
 
+  if (user.auth_provider === "google") {
+    const error = new Error("This account uses Google Sign-In. Continue with Google instead.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   const otpCode = generateOtp();
   const otpExpiresAt = getOtpExpiryDate(env.otp.expiresMinutes);
 
@@ -395,6 +401,12 @@ async function resetPassword(payload) {
   if (!user) {
     const error = new Error("No valid password reset session was found.");
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (user.auth_provider === "google") {
+    const error = new Error("This account uses Google Sign-In. Continue with Google instead.");
+    error.statusCode = 400;
     throw error;
   }
 

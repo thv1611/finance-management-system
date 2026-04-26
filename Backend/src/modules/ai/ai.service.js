@@ -27,6 +27,23 @@ function formatBookKnowledge(book) {
 
 const BOOK_KNOWLEDGE = formatBookKnowledge(financialBook);
 
+function stripFormattingArtifacts(text) {
+  return String(text || "")
+    .replace(/^\s*[*-]\s+/gm, "")
+    .replace(/\[(?:[A-Z]{3}|[A-Z]{2,4})-\d+\]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function formatAdvice(rule, message) {
+  if (!rule) {
+    return stripFormattingArtifacts(message);
+  }
+
+  return stripFormattingArtifacts(`${message} Theo ${rule.name} trong ${rule.source}.`);
+}
+
 function toCurrency(value) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -35,9 +52,77 @@ function toCurrency(value) {
   }).format(Number(value || 0));
 }
 
+function toPercent(value) {
+  return `${Number(value || 0).toFixed(1)}%`;
+}
+
+function formatDelta(value) {
+  const amount = Number(value || 0);
+  if (amount === 0) {
+    return "không đổi";
+  }
+
+  return `${amount > 0 ? "tăng" : "giảm"} ${toCurrency(Math.abs(amount))}`;
+}
+
+function parseTargetAmount(question) {
+  const normalizedQuestion = String(question || "")
+    .toLowerCase()
+    .replace(/[,]/g, ".")
+    .replace(/\s+/g, " ");
+
+  const millionMatch = normalizedQuestion.match(/(\d+(?:\.\d+)?)\s*(triệu|trieu)\b/);
+  if (millionMatch) {
+    return Number(millionMatch[1]) * 1000000;
+  }
+
+  const thousandMatch = normalizedQuestion.match(/(\d+(?:\.\d+)?)\s*(nghìn|nghin|k)\b/);
+  if (thousandMatch) {
+    return Number(thousandMatch[1]) * 1000;
+  }
+
+  const plainCurrencyMatch = normalizedQuestion.match(/(\d[\d.]*)\s*(đ|vnd|dong)\b/);
+  if (plainCurrencyMatch) {
+    return Number(String(plainCurrencyMatch[1]).replace(/[.]/g, ""));
+  }
+
+  return null;
+}
+
+function computeContextInsights(context) {
+  const monthlyBreakdown = context.monthlyBreakdown || [];
+  const currentMonth = monthlyBreakdown[monthlyBreakdown.length - 1] || null;
+  const previousMonth = monthlyBreakdown[monthlyBreakdown.length - 2] || null;
+  const overspentItems = (context.budgetSnapshot?.items || []).filter((item) => item.overspent);
+  const warningItems = (context.budgetSnapshot?.items || []).filter(
+    (item) => !item.overspent && Number(item.progress || 0) >= 80
+  );
+  const topCategory = context.topSpending?.[0] || null;
+  const topShare = context.spendingByCategory?.[0] || null;
+
+  return {
+    currentMonth,
+    previousMonth,
+    overspentItems,
+    warningItems,
+    topCategory,
+    topShare,
+    expenseDelta:
+      currentMonth && previousMonth
+        ? Number(currentMonth.expense || 0) - Number(previousMonth.expense || 0)
+        : null,
+    incomeDelta:
+      currentMonth && previousMonth
+        ? Number(currentMonth.income || 0) - Number(previousMonth.income || 0)
+        : null,
+  };
+}
+
 function summarizeContext(context) {
-  const topCategory = context.topSpending[0];
+  const insights = computeContextInsights(context);
+  const topCategory = insights.topCategory;
   const yearlyTopCategory = context.yearlyTopSpending?.[0];
+  const topShare = insights.topShare;
   const recentTransactionsText = context.recentTransactions.length
     ? context.recentTransactions
         .map(
@@ -64,6 +149,9 @@ function summarizeContext(context) {
     topCategory
       ? `- Top spending category (this month): ${topCategory.name} with ${toCurrency(topCategory.amount)} across ${topCategory.count} transactions`
       : "- Top spending category (this month): not available",
+    topShare
+      ? `- Largest expense share: ${topShare.name} accounts for ${toPercent(topShare.percent)} of this month's expense`
+      : "- Largest expense share: not available",
   ];
 
   if (context.yearlySummary) {
@@ -91,6 +179,31 @@ function summarizeContext(context) {
       const expense = toCurrency(month.expense);
       const savings = toCurrency(Number(month.income || 0) - Number(month.expense || 0));
       lines.push(`- ${label}: income ${income}, expense ${expense}, savings ${savings}`);
+    }
+  }
+
+  if (insights.currentMonth && insights.previousMonth) {
+    lines.push(
+      "",
+      "== Trend ==",
+      `- Expense vs previous month: ${formatDelta(insights.expenseDelta)}`,
+      `- Income vs previous month: ${formatDelta(insights.incomeDelta)}`
+    );
+  }
+
+  if (insights.overspentItems.length) {
+    lines.push("", "== Budget Risks ==");
+    for (const item of insights.overspentItems.slice(0, 3)) {
+      lines.push(
+        `- Overspent: ${item.category_name} spent ${toCurrency(item.spent)} on a budget of ${toCurrency(item.amount_limit)}`
+      );
+    }
+  } else if (insights.warningItems.length) {
+    lines.push("", "== Budget Warnings ==");
+    for (const item of insights.warningItems.slice(0, 3)) {
+      lines.push(
+        `- Near limit: ${item.category_name} used ${toPercent(item.progress)} of budget (${toCurrency(item.spent)} / ${toCurrency(item.amount_limit)})`
+      );
     }
   }
 
@@ -142,11 +255,22 @@ function findMonthInBreakdown(question, monthlyBreakdown) {
 
 function buildFallbackAnswer(question, context) {
   const normalizedQuestion = String(question || "").toLowerCase();
-  const topCategory = context.topSpending[0];
+  const insights = computeContextInsights(context);
+  const topCategory = insights.topCategory;
+  const topShare = insights.topShare;
   const overspentCount = Number(context.budgetSnapshot.overspent_categories_count || 0);
   const monthlyIncome = Number(context.dashboardSummary.monthly_income || 0);
   const monthlyExpenses = Number(context.dashboardSummary.monthly_expenses || 0);
   const monthlySavings = Number(context.dashboardSummary.monthly_savings || 0);
+  const targetAmount = parseTargetAmount(normalizedQuestion);
+  const savingRules = financialBook.topics?.saving?.rules || [];
+  const spendingRules = financialBook.topics?.spending?.rules || [];
+  const saving503020Rule = savingRules.find((rule) => rule.id === "SAV-01");
+  const payYourselfFirstRule = savingRules.find((rule) => rule.id === "SAV-02");
+  const emergencyFundRule = savingRules.find((rule) => rule.id === "SAV-03");
+  const assetVsExpenseRule = spendingRules.find((rule) => rule.id === "SPD-01");
+  const wait24hRule = spendingRules.find((rule) => rule.id === "SPD-02");
+  const smallExpenseRule = spendingRules.find((rule) => rule.id === "SPD-03");
 
   const matchedMonth = findMonthInBreakdown(normalizedQuestion, context.monthlyBreakdown);
   if (matchedMonth) {
@@ -180,12 +304,34 @@ function buildFallbackAnswer(question, context) {
   }
 
   if (normalizedQuestion.includes("budget") || normalizedQuestion.includes("ngân sách")) {
+    if (insights.overspentItems.length) {
+      const firstOverspent = insights.overspentItems[0];
+      return formatAdvice(
+        saving503020Rule,
+        `Hiện bạn có ${overspentCount} danh mục vượt ngân sách. Nặng nhất là ${firstOverspent.category_name}: đã chi ${toCurrency(firstOverspent.spent)} trên mức ${toCurrency(firstOverspent.amount_limit)}.`
+      );
+    }
+
+    if (insights.warningItems.length) {
+      const firstWarning = insights.warningItems[0];
+      return formatAdvice(
+        wait24hRule,
+        `${firstWarning.category_name} đang dùng ${toPercent(firstWarning.progress)} ngân sách. Nếu còn tiếp tục chi ở nhóm này, bạn rất dễ vượt mức trong tháng.`
+      );
+    }
+
     if (overspentCount > 0) {
-      return `You currently have ${overspentCount} overspent budget categories. [SAV-01] Theo Quy tắc 50/30/20 (Elizabeth Warren), hãy đảm bảo chi tiêu thiết yếu không vượt 50% thu nhập. Open Budgets to review.`;
+      return formatAdvice(
+        saving503020Rule,
+        `Hiện bạn có ${overspentCount} danh mục đang vượt ngân sách. Bạn nên kiểm tra lại phần chi tiêu thiết yếu và ưu tiên kéo nhóm này về mức an toàn trước.`
+      );
     }
 
     if (topCategory) {
-      return `[SPD-01] Theo Rich Dad Poor Dad: hãy tự hỏi "${topCategory.name} đưa tiền vào hay lấy tiền ra khỏi túi mình?". Category này đang dẫn đầu chi tiêu tại ${toCurrency(topCategory.amount)}.`;
+      return formatAdvice(
+        assetVsExpenseRule,
+        `${topCategory.name} đang là khoản chi lớn nhất ở mức ${toCurrency(topCategory.amount)}. Trước khi tăng thêm khoản này, hãy tự hỏi nó thực sự giúp ích lâu dài hay chỉ làm tiền đi ra thêm.`
+      );
     }
 
     return "Chưa có đủ dữ liệu ngân sách. Hãy thêm giao dịch và ngân sách, sau đó hỏi lại.";
@@ -201,16 +347,35 @@ function buildFallbackAnswer(question, context) {
     }
 
     const ratio = (monthlySavings / monthlyIncome) * 100;
+    if (targetAmount) {
+      const gap = targetAmount - monthlySavings;
+      if (gap <= 0) {
+        return `Mục tiêu ${toCurrency(targetAmount)} đang trong tầm tay vì tháng này bạn còn lại ${toCurrency(monthlySavings)}. Bạn chỉ cần giữ nhịp chi tiêu hiện tại và tránh tăng thêm ở nhóm ${topCategory?.name || "chi tiêu lớn nhất"}.`;
+      }
+
+      const topCategoryHint = topShare
+        ? `Nhóm chi lớn nhất hiện là ${topShare.name}, chiếm ${toPercent(topShare.percent)} tổng chi.`
+        : "";
+      return formatAdvice(
+        payYourselfFirstRule,
+        `Để chạm mục tiêu ${toCurrency(targetAmount)}, bạn còn thiếu khoảng ${toCurrency(gap)} so với phần còn lại tháng này là ${toCurrency(monthlySavings)}. ${topCategoryHint} Bạn nên chốt trước khoản tiết kiệm mục tiêu rồi siết nhóm chi lớn nhất.`
+      );
+    }
+
     let yearlyContext = "";
     if (context.yearlySummary) {
       const yearSavings = Number(context.yearlySummary.savings || 0);
       yearlyContext = ` Year-to-date savings: ${toCurrency(yearSavings)}.`;
     }
-    return `Monthly savings: ${toCurrency(monthlySavings)} (${Math.abs(ratio).toFixed(1)}% of income).${yearlyContext} ${
-      ratio < 10
-        ? "[SAV-02] Theo The Richest Man in Babylon: hãy trích tối thiểu 10% thu nhập đưa vào tiết kiệm TRƯỚC KHI chi tiêu."
-        : "[SAV-01] Theo Quy tắc 50/30/20: tỷ lệ tiết kiệm tốt. Hãy duy trì và tập trung vào hạng mục chi tiêu lớn nhất."
-    }`;
+    return ratio < 10
+      ? formatAdvice(
+          payYourselfFirstRule,
+          `Tiết kiệm tháng này là ${toCurrency(monthlySavings)}, tương đương ${Math.abs(ratio).toFixed(1)}% thu nhập.${yearlyContext} Bạn nên tách riêng một khoản tiết kiệm ngay khi vừa có thu nhập thay vì chờ cuối tháng còn bao nhiêu mới để dành.`
+        )
+      : formatAdvice(
+          saving503020Rule,
+          `Tiết kiệm tháng này là ${toCurrency(monthlySavings)}, tương đương ${Math.abs(ratio).toFixed(1)}% thu nhập.${yearlyContext} Tỷ lệ này đang khá ổn, bạn nên giữ nhịp hiện tại và tiếp tục theo dõi nhóm chi lớn nhất.`
+        );
   }
 
   if (
@@ -218,6 +383,14 @@ function buildFallbackAnswer(question, context) {
     normalizedQuestion.includes("expense") ||
     normalizedQuestion.includes("chi tiêu")
   ) {
+    if (insights.currentMonth && insights.previousMonth) {
+      return `Chi tiêu tháng này là ${toCurrency(monthlyExpenses)}, ${formatDelta(insights.expenseDelta)} so với ${insights.previousMonth.label}. ${
+        topShare
+          ? `${topShare.name} đang chiếm tỷ trọng lớn nhất ở mức ${toPercent(topShare.percent)}.`
+          : ""
+      }`.trim();
+    }
+
     if (topCategory) {
       let yearlyContext = "";
       const yearlyTop = context.yearlyTopSpending?.[0];
@@ -230,15 +403,50 @@ function buildFallbackAnswer(question, context) {
     return `Your monthly expenses are ${toCurrency(monthlyExpenses)} and monthly income is ${toCurrency(monthlyIncome)}. I need more category history to say which area is driving most of the spending.`;
   }
 
+  if (
+    normalizedQuestion.includes("phân tích") ||
+    normalizedQuestion.includes("analyze") ||
+    normalizedQuestion.includes("nhận xét") ||
+    normalizedQuestion.includes("đánh giá")
+  ) {
+    const trendText = insights.currentMonth && insights.previousMonth
+      ? ` So với ${insights.previousMonth.label}, chi tiêu đang ${formatDelta(insights.expenseDelta)} và thu nhập đang ${formatDelta(insights.incomeDelta)}.`
+      : "";
+    const budgetText = insights.overspentItems.length
+      ? ` Bạn đang có ${insights.overspentItems.length} danh mục vượt ngân sách.`
+      : insights.warningItems.length
+        ? ` Có ${insights.warningItems.length} danh mục đã chạm ngưỡng cảnh báo ngân sách.`
+        : "";
+    const categoryText = topShare
+      ? ` Danh mục kéo chi tiêu mạnh nhất là ${topShare.name}, chiếm ${toPercent(topShare.percent)} tổng chi tháng này.`
+      : "";
+
+    return `Tháng này bạn thu ${toCurrency(monthlyIncome)}, chi ${toCurrency(monthlyExpenses)} và còn lại ${toCurrency(monthlySavings)}.${trendText}${budgetText}${categoryText}`.trim();
+  }
+
   if (monthlySavings < 0) {
-    return `Dòng tiền tháng này đang âm: thu nhập ${toCurrency(monthlyIncome)}, chi tiêu ${toCurrency(monthlyExpenses)}. [SAV-03] Theo Rich Dad Poor Dad: bạn cần quỹ khẩn cấp 3-6 tháng chi phí. Hãy cắt giảm chi tiêu không thiết yếu ngay. [SPD-03] Theo The Richest Man in Babylon: ghi chép chi tiêu 30 ngày và cắt khoản lặp lại không cần thiết.`;
+    return stripFormattingArtifacts(
+      `${formatAdvice(
+        emergencyFundRule,
+        `Dòng tiền tháng này đang âm: thu nhập ${toCurrency(monthlyIncome)}, chi tiêu ${toCurrency(monthlyExpenses)}. Bạn nên ưu tiên kéo chi tiêu xuống và xây lại vùng an toàn tài chính.`
+      )} ${formatAdvice(
+        smallExpenseRule,
+        "Một cách dễ bắt đầu là ghi lại chi tiêu trong 30 ngày và cắt bớt các khoản nhỏ lặp lại nhưng không thực sự cần thiết."
+      )}`
+    );
   }
 
   if (topCategory) {
-    return `Tài chính đang ổn định. [SPD-02] Theo Quy tắc 24 giờ: trước khi chi tiêu lớn cho ${topCategory.name} (${toCurrency(topCategory.amount)}), hãy đợi 24h suy nghĩ.`;
+    return formatAdvice(
+      wait24hRule,
+      `Tài chính hiện tại khá ổn. Với các khoản chi lớn liên quan đến ${topCategory.name} (${toCurrency(topCategory.amount)}), bạn nên tự cho mình một khoảng dừng trước khi quyết định.`
+    );
   }
 
-  return `Thu nhập tháng: ${toCurrency(monthlyIncome)}, chi tiêu: ${toCurrency(monthlyExpenses)}, tiết kiệm: ${toCurrency(monthlySavings)}. [SAV-01] Theo Quy tắc 50/30/20: hãy phân bổ 50% nhu cầu, 30% mong muốn, 20% tiết kiệm. Hỏi cụ thể về ngân sách, tiết kiệm, hoặc chi tiêu để được tư vấn chi tiết hơn.`;
+  return formatAdvice(
+    saving503020Rule,
+    `Thu nhập tháng là ${toCurrency(monthlyIncome)}, chi tiêu là ${toCurrency(monthlyExpenses)}, và phần còn lại là ${toCurrency(monthlySavings)}. Nếu muốn quản lý tiền rõ hơn, bạn có thể chia ngân sách thành nhóm nhu cầu, mong muốn và tiết kiệm để dễ kiểm soát hơn.`
+  );
 }
 
 function getActiveProvider() {
@@ -321,13 +529,16 @@ function createSystemInstruction() {
     "== QUY TẮC BẮT BUỘC ==",
     "- Khi đưa lời khuyên tài chính: TUYỆT ĐỐI CHỈ sử dụng kiến thức có trong Kho Dữ Liệu Sách. KHÔNG được tự bịa thêm hoặc dùng kiến thức bên ngoài.",
     "- Nếu sách không có thông tin liên quan: trả lời 'Tài liệu tham khảo hiện tại chưa có hướng dẫn về vấn đề này.'",
-    "- Khi trích dẫn lời khuyên: BẮT BUỘC ghi rõ mã quy tắc và nguồn sách (ví dụ: [SAV-01] theo Quy tắc 50/30/20).",
+    "- Khi nhắc đến lời khuyên từ sách, hãy diễn đạt tự nhiên như một cuộc trò chuyện. Có thể nhắc tên nguyên tắc hoặc nguồn sách, nhưng KHÔNG được lộ mã nội bộ như SAV-01 hay SPD-03.",
     "- Khi trả lời câu hỏi về số liệu (số dư, chi tiêu tháng nào, so sánh): dùng dữ liệu tài chính thực tế của người dùng. Không bịa số liệu.",
+    "- Khi có thể, hãy chỉ ra danh mục chi lớn nhất, trạng thái ngân sách, hoặc xu hướng so với tháng trước để câu trả lời có tính cá nhân hóa.",
+    "- Nếu người dùng hỏi mục tiêu tiết kiệm cụ thể, hãy so mục tiêu đó với phần tiền còn lại trong tháng và nêu đang thiếu hay dư bao nhiêu.",
     "- Nếu dữ liệu tài chính thiếu, nói rõ: 'Chưa có đủ dữ liệu để trả lời.'",
     "",
     "== ĐỊNH DẠNG TRẢ LỜI ==",
     "- Trả lời trực diện, không chào hỏi rườm rà.",
-    "- Dùng gạch đầu dòng khi liệt kê.",
+    "- Ưu tiên 1 đoạn ngắn hoặc 2-3 câu tự nhiên, dễ đọc.",
+    "- Không dùng markdown bullet bằng dấu * nếu không thật sự cần.",
     "- Tối đa 100 từ cho mỗi câu trả lời tư vấn.",
     "- Ưu tiên tiếng Việt nếu người dùng hỏi bằng tiếng Việt.",
   ].join("\n");
@@ -438,6 +649,7 @@ async function getAiContext(userId) {
     recentTransactions,
     budgetSnapshot,
     reportSummary,
+    spendingByCategory,
     topSpending,
     yearlySummary,
     yearlyTopSpending,
@@ -447,6 +659,7 @@ async function getAiContext(userId) {
     dashboardService.getRecentTransactions(userId, 15),
     dashboardService.getBudgetSnapshot(userId),
     reportsService.getSummary(userId, { range: "month" }),
+    reportsService.getSpendingByCategory(userId, { range: "month" }),
     reportsService.getTopSpending(userId, { range: "month" }),
     reportsService.getSummary(userId, { range: "year" }),
     reportsService.getTopSpending(userId, { range: "year" }),
@@ -458,6 +671,7 @@ async function getAiContext(userId) {
     recentTransactions,
     budgetSnapshot,
     reportSummary,
+    spendingByCategory,
     topSpending,
     yearlySummary,
     yearlyTopSpending,
@@ -499,7 +713,7 @@ async function chat(userId, payload) {
   }
 
   return {
-    message: answer,
+    message: stripFormattingArtifacts(answer),
     source,
     configured,
     fallbackReason,

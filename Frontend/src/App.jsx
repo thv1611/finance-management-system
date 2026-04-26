@@ -15,12 +15,17 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ForgotPasswordOtpPage from "./pages/ForgotPasswordOtpPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import SessionTimeoutManager from "./components/auth/SessionTimeoutManager";
+import { getAuthSession } from "./lib/authSession";
 
 export default function App() {
+  const { isAuthenticated } = getAuthSession();
+
   return (
     <BrowserRouter>
+      <SessionTimeoutManager />
       <Routes>
-        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/register"} replace />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/login" element={<LoginPage />} />

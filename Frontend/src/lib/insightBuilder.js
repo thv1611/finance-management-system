@@ -7,6 +7,11 @@ export function buildDashboardInsight({ summary, recentTransactions = [], budget
   const monthlyExpenses = Number(summary?.monthly_expenses || 0);
   const monthlySavings = Number(summary?.monthly_savings || 0);
   const overspentCount = Number(budgetSnapshot?.overspent_categories_count || 0);
+  const warningItem = (budgetSnapshot?.items || []).find(
+    (item) => !item.overspent && Number(item.progress || 0) >= 80
+  );
+  const topBudgetRisk = (budgetSnapshot?.items || []).find((item) => item.overspent) || warningItem;
+  const latestExpense = recentTransactions.find((transaction) => transaction.type === "expense");
 
   if (!recentTransactions.length && !budgetSnapshot?.items?.length) {
     return {
@@ -26,6 +31,17 @@ export function buildDashboardInsight({ summary, recentTransactions = [], budget
     };
   }
 
+  if (topBudgetRisk) {
+    return {
+      title: "AI Insight",
+      description: topBudgetRisk.overspent
+        ? `${topBudgetRisk.category_name} is already over budget. This is the fastest place to intervene before month-end.`
+        : `${topBudgetRisk.category_name} has used ${Number(topBudgetRisk.progress || 0).toFixed(0)}% of its budget. One more expense could push it over.`,
+      actionLabel: "Review Budgets",
+      actionTo: "/budgets",
+    };
+  }
+
   if (monthlyIncome > 0) {
     const savingRatio = (monthlySavings / monthlyIncome) * 100;
     if (savingRatio < 10) {
@@ -38,7 +54,7 @@ export function buildDashboardInsight({ summary, recentTransactions = [], budget
     }
   }
 
-  if (monthlyExpenses > monthlyIncome && monthlyIncome > 0) {
+  if (monthlyExpenses >= monthlyIncome && monthlyIncome > 0) {
     return {
       title: "AI Insight",
       description: "This month your expenses are running above income. Check recent spending and rebalance fast-moving categories.",
@@ -47,9 +63,18 @@ export function buildDashboardInsight({ summary, recentTransactions = [], budget
     };
   }
 
+  if (latestExpense) {
+    return {
+      title: "AI Insight",
+      description: `Your latest expense was in ${latestExpense.category}. If that category keeps recurring, it is the best place to tighten next.`,
+      actionLabel: "Open AI Chat",
+      actionTo: "/ai-insights",
+    };
+  }
+
   return {
     title: "AI Insight",
-    description: "Your recent activity looks balanced. Keep tracking transactions to maintain a steady monthly flow.",
+    description: "Your current month looks balanced. Use AI Insights to turn this snapshot into a concrete saving plan.",
     actionLabel: "View Reports",
     actionTo: "/reports",
   };

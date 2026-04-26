@@ -3,6 +3,7 @@ import AuthMessage from "../components/auth/AuthMessage";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import StatCard from "../components/dashboard/StatCard";
+import DashboardHighlights from "../components/dashboard/DashboardHighlights";
 import SpendingAnalytics from "../components/dashboard/SpendingAnalytics";
 import BudgetSnapshot from "../components/dashboard/BudgetSnapshot";
 import RecentTransactions from "../components/dashboard/RecentTransactions";
@@ -141,34 +142,58 @@ export default function DashboardPage() {
     recentTransactions,
     budgetSnapshot,
   });
+  const savingsRatio = summary.monthly_income > 0 ? (summary.monthly_savings / summary.monthly_income) * 100 : 0;
+  const expenseRatio = summary.monthly_income > 0 ? (summary.monthly_expenses / summary.monthly_income) * 100 : 0;
+  const overspentCount = Number(budgetSnapshot.overspent_categories_count || 0);
+  const budgetWarningCount = (budgetSnapshot.items || []).filter(
+    (item) => !item.overspent && Number(item.progress || 0) >= 80
+  ).length;
   const stats = [
     {
       icon: "wallet",
       label: "Total Balance",
       amount: formatCurrency(summary.total_balance),
-      trend: "Live",
+      trend: summary.total_balance >= 0 ? "Stable" : "Alert",
       tone: summary.total_balance >= 0 ? "positive" : "negative",
+      caption:
+        summary.total_balance >= 0
+          ? "Net position across all recorded transactions."
+          : "Your recorded outflow is ahead of inflow.",
     },
     {
       icon: "income",
       label: "Monthly Income",
       amount: formatCurrency(summary.monthly_income),
-      trend: "Live",
+      trend: summary.monthly_income > 0 ? "Active" : "Quiet",
       tone: "positive",
+      caption:
+        summary.monthly_income > 0
+          ? `${formatCurrency(summary.monthly_income - summary.monthly_expenses)} net room after expenses.`
+          : "Log income entries to unlock stronger monthly analysis.",
     },
     {
       icon: "expense",
       label: "Monthly Expenses",
       amount: formatCurrency(summary.monthly_expenses),
-      trend: "Live",
+      trend: summary.monthly_income > 0 ? `${Math.round(expenseRatio)}%` : "Track",
       tone: summary.monthly_expenses > 0 ? "negative" : "positive",
+      caption:
+        summary.monthly_income > 0
+          ? "Share of this month's income already used."
+          : "Your cost trend becomes clearer once income is logged too.",
     },
     {
       icon: "savings",
       label: "Monthly Savings",
       amount: formatCurrency(summary.monthly_savings),
-      trend: "Live",
+      trend: summary.monthly_income > 0 ? `${Math.round(Math.abs(savingsRatio))}%` : "Track",
       tone: summary.monthly_savings >= 0 ? "positive" : "negative",
+      caption:
+        overspentCount > 0
+          ? `${overspentCount} budget ${overspentCount > 1 ? "categories are" : "category is"} already over limit.`
+          : budgetWarningCount > 0
+            ? `${budgetWarningCount} budget ${budgetWarningCount > 1 ? "categories are" : "category is"} close to the limit.`
+            : "No budget category is currently in the danger zone.",
     },
   ];
 
@@ -188,7 +213,7 @@ export default function DashboardPage() {
           onDismissNotification={onDismissNotification}
         />
 
-        <div className="mx-auto max-w-[1320px] px-4 pb-10 pt-4 md:px-8">
+        <div className="mx-auto max-w-[1380px] px-4 pb-10 pt-4 md:px-8">
           <section className="mb-7">
             <p className="mb-2 text-sm font-bold uppercase tracking-[0.12em] text-[#8d99a5]">Overview</p>
             <h1 className="text-4xl font-black tracking-[-0.04em] text-[#1f2d38] md:text-5xl">Dashboard</h1>
@@ -209,14 +234,21 @@ export default function DashboardPage() {
                 ))}
               </section>
 
-              <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(330px,0.9fr)]">
-                <SpendingAnalytics data={spendingAnalytics} />
-                <BudgetSnapshot snapshot={budgetSnapshot} />
-              </section>
+              <DashboardHighlights
+                monthlyIncome={summary.monthly_income}
+                monthlyExpenses={summary.monthly_expenses}
+                monthlySavings={summary.monthly_savings}
+                budgetSnapshot={budgetSnapshot}
+                recentTransactions={recentTransactions}
+              />
 
-              <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,0.75fr)]">
-                <RecentTransactions transactions={recentTransactions} />
-                <div className="space-y-6">
+              <section className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.72fr)_360px]">
+                <div className="min-w-0 space-y-6">
+                  <SpendingAnalytics data={spendingAnalytics} />
+                  <RecentTransactions transactions={recentTransactions} />
+                </div>
+                <div className="min-w-0 space-y-6 xl:sticky xl:top-24">
+                  <BudgetSnapshot snapshot={budgetSnapshot} />
                   <AIInsightCard {...dashboardInsight} />
                   <QuickActions />
                 </div>

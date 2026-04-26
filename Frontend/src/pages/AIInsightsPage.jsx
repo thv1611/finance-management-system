@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AuthMessage from "../components/auth/AuthMessage";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import { useNotificationFeed } from "../hooks/useNotificationFeed";
@@ -55,9 +55,22 @@ function loadStoredMessagesByKey(storageKey) {
   }
 }
 
+function getSourceLabel(source) {
+  if (source === "fallback") {
+    return "App insight";
+  }
+
+  if (source === "system") {
+    return "Context";
+  }
+
+  return "AI model";
+}
+
 export default function AIInsightsPage() {
   const { user } = getAuthSession();
   const userChatKey = getChatStorageKey(user);
+  const messagesEndRef = useRef(null);
   const {
     notifications,
     unreadCount,
@@ -73,6 +86,9 @@ export default function AIInsightsPage() {
   const [isAiConfigured, setIsAiConfigured] = useState(null);
   const [fallbackReason, setFallbackReason] = useState("");
   const [providerLabel, setProviderLabel] = useState("Gemini");
+  const conversationCount = messages.filter((item) => item.role === "user").length;
+  const statusLabel =
+    aiMode !== "fallback" && aiMode !== "unknown" ? `${providerLabel} Live` : "Live Context";
 
   useEffect(() => {
     setMessages(loadStoredMessagesByKey(userChatKey));
@@ -85,6 +101,10 @@ export default function AIInsightsPage() {
 
     window.localStorage.setItem(userChatKey, JSON.stringify(messages));
   }, [messages, userChatKey]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isSubmitting]);
 
   const conversation = useMemo(
     () =>
@@ -136,6 +156,15 @@ export default function AIInsightsPage() {
   }
 
   function handleSubmit(event) {
+    event.preventDefault();
+    handleAskAi();
+  }
+
+  function handleInputKeyDown(event) {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
     event.preventDefault();
     handleAskAi();
   }
@@ -208,8 +237,46 @@ export default function AIInsightsPage() {
           ) : null}
 
           <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_320px]">
-            <div className="rounded-lg bg-white p-5 shadow-[0_24px_58px_rgba(35,66,85,0.065)]">
-              <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
+            <div className="overflow-hidden rounded-[28px] bg-white shadow-[0_24px_58px_rgba(35,66,85,0.065)]">
+              <div className="relative overflow-hidden border-b border-[#edf2f5] bg-[radial-gradient(circle_at_top_left,_rgba(142,215,233,0.18),_transparent_44%),linear-gradient(135deg,_rgba(239,248,251,0.95),_rgba(255,255,255,0.92))] px-5 py-5">
+                <div className="pointer-events-none absolute -right-8 top-0 h-24 w-24 rounded-full bg-[#8fd8cd]/25 blur-2xl" />
+                <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-[#0d9488] shadow-[0_10px_24px_rgba(19,151,127,0.12)]">
+                      Insight Copilot
+                    </div>
+                    <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[#22313b]">
+                      Ask for a diagnosis, not just an answer.
+                    </h2>
+                    <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-[#70808c]">
+                      This chat reads from your transactions, budgets, and recent reports so you can explain decisions with real numbers during the demo.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-white/82 px-4 py-3 shadow-[0_14px_30px_rgba(35,66,85,0.08)]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8c98a4]">
+                        Status
+                      </p>
+                      <p className="mt-2 text-sm font-black text-[#22313b]">{statusLabel}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/82 px-4 py-3 shadow-[0_14px_30px_rgba(35,66,85,0.08)]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8c98a4]">
+                        Questions asked
+                      </p>
+                      <p className="mt-2 text-sm font-black text-[#22313b]">{conversationCount}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/82 px-4 py-3 shadow-[0_14px_30px_rgba(35,66,85,0.08)]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#8c98a4]">
+                        Best use
+                      </p>
+                      <p className="mt-2 text-sm font-black text-[#22313b]">Budget fixes</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="max-h-[62vh] space-y-4 overflow-y-auto px-5 py-5 pr-4">
                 {messages.map((item) => {
                   const isUser = item.role === "user";
 
@@ -225,10 +292,12 @@ export default function AIInsightsPage() {
                             : "bg-[#f6fafb] text-[#25313b]"
                         }`}
                       >
-                        <p className="text-sm font-semibold leading-6">{item.content}</p>
+                        <p className="whitespace-pre-wrap text-sm font-semibold leading-6">
+                          {item.content}
+                        </p>
                         {!isUser && item.source ? (
                           <p className="mt-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#8d99a5]">
-                            {item.source === "fallback" ? "App insight" : "AI model"}
+                            {getSourceLabel(item.source)}
                           </p>
                         ) : null}
                       </div>
@@ -238,18 +307,33 @@ export default function AIInsightsPage() {
 
                 {isSubmitting ? (
                   <div className="flex justify-start">
-                    <div className="rounded-2xl bg-[#f6fafb] px-4 py-3 text-sm font-semibold text-[#63717c]">
-                      Thinking...
+                    <div className="rounded-2xl bg-[#f6fafb] px-4 py-3 text-sm font-semibold text-[#63717c] shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span>Thinking</span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0d9488]" />
+                          <span
+                            className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0d9488]"
+                            style={{ animationDelay: "120ms" }}
+                          />
+                          <span
+                            className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#0d9488]"
+                            style={{ animationDelay: "240ms" }}
+                          />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : null}
+                <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-5 border-t border-[#edf2f5] pt-5">
+              <form onSubmit={handleSubmit} className="border-t border-[#edf2f5] bg-white px-5 py-5">
                 <div className="flex gap-3">
                   <textarea
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={handleInputKeyDown}
                     placeholder="Ask AI about your spending, savings, or budget priorities..."
                     className="min-h-[104px] flex-1 resize-none rounded-lg border border-[#e6edf1] bg-[#f8fbfc] px-4 py-3 text-sm font-semibold text-[#25313b] outline-none transition placeholder:text-[#a5afb8] focus:border-[#8fd8cd] focus:bg-white"
                   />
@@ -260,6 +344,10 @@ export default function AIInsightsPage() {
                   >
                     Send
                   </button>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 text-[11px] font-bold text-[#91a0ab]">
+                  <p>Press Enter to send. Use Shift + Enter for a new line.</p>
+                  <p>{statusLabel}</p>
                 </div>
               </form>
             </div>
@@ -281,6 +369,21 @@ export default function AIInsightsPage() {
                     >
                       {prompt}
                     </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg bg-white p-5 shadow-[0_20px_45px_rgba(35,66,85,0.06)]">
+                <h2 className="text-lg font-black tracking-[-0.02em] text-[#25313b]">Best Questions</h2>
+                <div className="mt-4 space-y-3">
+                  {[
+                    "Which category is dragging my savings down?",
+                    "What should I cut first to stay under budget?",
+                    "Summarize my month in three key insights.",
+                  ].map((tip) => (
+                    <div key={tip} className="rounded-lg bg-[#f6fafb] px-4 py-3 text-sm font-bold text-[#4d5b66]">
+                      {tip}
+                    </div>
                   ))}
                 </div>
               </section>

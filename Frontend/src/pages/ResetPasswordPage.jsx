@@ -5,11 +5,14 @@ import AuthMessage from "../components/auth/AuthMessage";
 import PasswordField from "../components/auth/PasswordField";
 import { resetPassword } from "../lib/authApi";
 
+const PASSWORD_RESET_EMAIL_KEY = "password_reset_email";
+const PASSWORD_RESET_TOKEN_KEY = "password_reset_token";
+
 export default function ResetPasswordPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || "";
-  const resetToken = location.state?.resetToken || "";
+  const email = location.state?.email || sessionStorage.getItem(PASSWORD_RESET_EMAIL_KEY) || "";
+  const resetToken = location.state?.resetToken || sessionStorage.getItem(PASSWORD_RESET_TOKEN_KEY) || "";
   const [form, setForm] = useState({
     password: "",
     confirm_password: "",
@@ -71,6 +74,8 @@ export default function ResetPasswordPage() {
       });
       setTone("neutral");
       setMessage(result.message);
+      sessionStorage.removeItem(PASSWORD_RESET_EMAIL_KEY);
+      sessionStorage.removeItem(PASSWORD_RESET_TOKEN_KEY);
       setTimeout(() => navigate("/login"), 1400);
     } catch (error) {
       setTone("error");

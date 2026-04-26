@@ -5,6 +5,9 @@ import AuthMessage from "../components/auth/AuthMessage";
 import OtpInputGroup from "../components/auth/OtpInputGroup";
 import { requestPasswordReset, verifyPasswordResetOtp } from "../lib/authApi";
 
+const PASSWORD_RESET_EMAIL_KEY = "password_reset_email";
+const PASSWORD_RESET_TOKEN_KEY = "password_reset_token";
+
 function maskEmail(email) {
   const [name = "", domain = ""] = email.split("@");
   if (!name || !domain) {
@@ -19,7 +22,7 @@ function maskEmail(email) {
 export default function ForgotPasswordOtpPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || "";
+  const email = location.state?.email || sessionStorage.getItem(PASSWORD_RESET_EMAIL_KEY) || "";
   const [otpCode, setOtpCode] = useState("");
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("neutral");
@@ -37,6 +40,9 @@ export default function ForgotPasswordOtpPage() {
         email,
         otp_code: otpCode,
       });
+      if (result.data?.reset_token) {
+        sessionStorage.setItem(PASSWORD_RESET_TOKEN_KEY, result.data.reset_token);
+      }
       navigate("/forgot-password/reset", {
         state: {
           email,

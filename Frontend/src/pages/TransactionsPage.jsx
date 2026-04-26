@@ -335,10 +335,12 @@ export default function TransactionsPage() {
   }
 
   function handleToggleCategory(categoryId) {
+    const normalizedCategoryId = String(categoryId);
+
     updateFilters({
-      categoryIds: filters.categoryIds.includes(categoryId)
-        ? filters.categoryIds.filter((id) => id !== categoryId)
-        : [...filters.categoryIds, categoryId],
+      categoryIds: filters.categoryIds.includes(normalizedCategoryId)
+        ? filters.categoryIds.filter((id) => id !== normalizedCategoryId)
+        : [...filters.categoryIds, normalizedCategoryId],
     });
   }
 

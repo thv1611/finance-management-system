@@ -1,6 +1,6 @@
 import { clearAuthSession, getAuthSession, persistAuthSession } from "./authSession";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api").replace(/\/$/, "");
 let refreshPromise = null;
 
 async function parseResponse(response) {
@@ -108,7 +108,7 @@ export async function request(path, options = {}) {
   } catch (error) {
     if (error instanceof TypeError) {
       const networkError = new Error(
-        "Cannot reach the backend at http://localhost:5000. Make sure the backend server is running and then try again."
+        `Cannot reach the backend at ${API_BASE_URL}. Make sure the backend server is running and then try again.`
       );
       networkError.cause = error;
       throw networkError;
