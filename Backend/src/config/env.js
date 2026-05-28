@@ -12,6 +12,7 @@ const normalizeProvider = (value) => {
 
 const aiProvider = normalizeProvider(process.env.AI_PROVIDER);
 const aiSqlEnabled = String(process.env.AI_SQL_AGENT_ENABLED || "false").toLowerCase() === "true";
+const aiFallbackEnabled = String(process.env.AI_FALLBACK_ENABLED || "true").toLowerCase() !== "false";
 
 const requiredEnvKeys = [
   "MAIL_HOST",
@@ -31,7 +32,9 @@ const databaseConfigKeys = hasDatabaseUrl
   : ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"];
 
 const aiConfigKeys =
-  aiProvider === "gemini"
+  aiFallbackEnabled
+    ? []
+    : aiProvider === "gemini"
     ? ["GEMINI_API_KEY", "GEMINI_MODEL"]
     : aiProvider === "openai"
     ? ["OPENAI_API_KEY", "OPENAI_MODEL"]
@@ -90,7 +93,7 @@ module.exports = {
   },
   ai: {
     provider: aiProvider,
-    fallbackEnabled: String(process.env.AI_FALLBACK_ENABLED || "true").toLowerCase() !== "false",
+    fallbackEnabled: aiFallbackEnabled,
   },
   aiSql: {
     enabled: aiSqlEnabled,

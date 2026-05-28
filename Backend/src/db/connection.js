@@ -10,6 +10,7 @@ function getConnectionString() {
 
   const connectionUrl = new URL(process.env.DATABASE_URL);
   connectionUrl.searchParams.delete("channel_binding");
+  connectionUrl.searchParams.delete("sslmode");
   return connectionUrl.toString();
 }
 

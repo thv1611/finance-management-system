@@ -15,6 +15,8 @@ async function startServer() {
     });
   } catch (error) {
     console.error("Database connection failed:", error.message);
+    await pool.end().catch(() => {});
+    process.exitCode = 1;
   }
 }
 
