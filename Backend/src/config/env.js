@@ -94,8 +94,8 @@ module.exports = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES,
   },
   google: {
-    clientId: process.env.GOOGLE_CLIENT_ID || "",
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    clientId: (process.env.GOOGLE_CLIENT_ID || "").trim(),
+    clientSecret: (process.env.GOOGLE_CLIENT_SECRET || "").trim(),
   },
   otp: {
     expiresMinutes: Number(process.env.OTP_EXPIRES_MINUTES || 5),
