@@ -1,6 +1,7 @@
 const app = require("./app");
 const pool = require("./db/connection");
 const env = require("./config/env");
+const { getEmailProviderLabel } = require("./config/mail");
 const { initializeDatabase } = require("./db/init");
 
 async function startServer() {
@@ -12,6 +13,7 @@ async function startServer() {
 
     app.listen(env.port, () => {
       console.log(`Server running on port ${env.port}`);
+      console.log(`Email provider: ${getEmailProviderLabel()}`);
     });
   } catch (error) {
     console.error("Database connection failed:", error.message);

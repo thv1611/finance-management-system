@@ -38,10 +38,18 @@ function parseMailFrom(value) {
   };
 }
 
+function getEmailProviderLabel() {
+  return env.brevo.apiKey ? "brevo-api" : "smtp";
+}
+
 async function sendWithBrevoApi(to, subject, text) {
   const sender = parseMailFrom(env.mail.from);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
+    signal: controller.signal,
     headers: {
       accept: "application/json",
       "api-key": env.brevo.apiKey,
@@ -53,6 +61,8 @@ async function sendWithBrevoApi(to, subject, text) {
       subject,
       textContent: text,
     }),
+  }).finally(() => {
+    clearTimeout(timeout);
   });
 
   if (!response.ok) {
@@ -62,9 +72,15 @@ async function sendWithBrevoApi(to, subject, text) {
 }
 
 async function sendMail(to, subject, text) {
+  console.log(`Sending email via ${getEmailProviderLabel()} to ${to}`);
+
   if (env.brevo.apiKey) {
     await sendWithBrevoApi(to, subject, text);
     return;
+  }
+
+  if (String(env.mail.host || "").includes("brevo")) {
+    throw new Error("BREVO_API_KEY is missing. Add a Brevo API key that starts with xkeysib- in Render Environment.");
   }
 
   await getTransporter().sendMail({
@@ -103,6 +119,7 @@ async function sendPasswordResetOtpEmail(to, otpCode) {
 
 module.exports = {
   getTransporter,
+  getEmailProviderLabel,
   sendOtpEmail,
   sendPasswordResetOtpEmail,
 };
