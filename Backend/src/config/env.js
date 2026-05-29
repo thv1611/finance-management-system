@@ -14,12 +14,18 @@ const aiProvider = normalizeProvider(process.env.AI_PROVIDER);
 const aiSqlEnabled = String(process.env.AI_SQL_AGENT_ENABLED || "false").toLowerCase() === "true";
 const aiFallbackEnabled = String(process.env.AI_FALLBACK_ENABLED || "true").toLowerCase() !== "false";
 
+const hasBrevoApiKey = Boolean(process.env.BREVO_API_KEY);
+const mailConfigKeys = hasBrevoApiKey
+  ? ["MAIL_FROM"]
+  : [
+      "MAIL_HOST",
+      "MAIL_PORT",
+      "MAIL_USER",
+      "MAIL_PASS",
+      "MAIL_FROM",
+    ];
+
 const requiredEnvKeys = [
-  "MAIL_HOST",
-  "MAIL_PORT",
-  "MAIL_USER",
-  "MAIL_PASS",
-  "MAIL_FROM",
   "JWT_ACCESS_SECRET",
   "JWT_REFRESH_SECRET",
   "JWT_ACCESS_EXPIRES",
@@ -46,6 +52,7 @@ const aiSqlConfigKeys = aiSqlEnabled
 
 const missingEnvKeys = [
   ...databaseConfigKeys,
+  ...mailConfigKeys,
   ...requiredEnvKeys,
   ...aiConfigKeys,
   ...aiSqlConfigKeys,
@@ -76,6 +83,9 @@ module.exports = {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
     from: process.env.MAIL_FROM,
+  },
+  brevo: {
+    apiKey: (process.env.BREVO_API_KEY || "").trim(),
   },
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET,
