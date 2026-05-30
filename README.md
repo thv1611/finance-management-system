@@ -86,9 +86,7 @@ The application solves the common problem of scattered personal finance records 
 ```text
 finance-management-system/
 |-- README.md
-|-- DEPLOY.md
-|-- DEMO_SCRIPT.md
-|-- REPORT.md
+|-- .gitignore
 |-- Backend/
 |   |-- .env.example
 |   |-- package.json
@@ -96,6 +94,7 @@ finance-management-system/
 |   |-- ai_sql_service/
 |   |   |-- requirements.txt
 |   |   `-- app/
+|   |       |-- __init__.py
 |   |       |-- main.py
 |   |       |-- agent_service.py
 |   |       |-- schema_context.py
@@ -104,9 +103,17 @@ finance-management-system/
 |       |-- app.js
 |       |-- server.js
 |       |-- config/
+|       |   |-- env.js
+|       |   `-- mail.js
 |       |-- data/
+|       |   `-- financialBook.json
 |       |-- db/
+|       |   |-- connection.js
+|       |   |-- init.js
+|       |   `-- schema.sql
 |       |-- middlewares/
+|       |   |-- auth.middleware.js
+|       |   `-- error.middleware.js
 |       |-- modules/
 |       |   |-- ai/
 |       |   |-- auth/
@@ -117,18 +124,35 @@ finance-management-system/
 |       |   |-- reports/
 |       |   `-- transactions/
 |       `-- utils/
+|           |-- otp.js
+|           |-- receipt.js
+|           |-- response.js
+|           `-- token.js
 `-- Frontend/
     |-- .env.example
+    |-- index.html
     |-- package.json
     |-- package-lock.json
+    |-- eslint.config.js
+    |-- postcss.config.js
+    |-- tailwind.config.js
     |-- vite.config.js
     |-- vercel.json
-    |-- tailwind.config.js
     |-- public/
+    |   |-- favicon.svg
+    |   `-- icons.svg
     `-- src/
         |-- App.jsx
         |-- main.jsx
+        |-- index.css
         |-- components/
+        |   |-- auth/
+        |   |-- budgets/
+        |   |-- cashflow/
+        |   |-- common/
+        |   |-- dashboard/
+        |   |-- reports/
+        |   `-- transactions/
         |-- hooks/
         |-- lib/
         `-- pages/
