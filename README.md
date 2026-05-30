@@ -495,10 +495,4 @@ Contributor information found in the Git history:
 | ----------- | ----------------------------- |
 | thv1611     | `truonghavy124@gmail.com`     |
 | quangcammm  | `quangnguyen762017@gmail.com` |
-
-University submission details can be added here if required:
-
-| Name       | Student ID       | Main responsibility  |
-| ---------- | ---------------- | -------------------- |
-| [Add name] | [Add student ID] | [Add responsibility] |
-| [Add name] | [Add student ID] | [Add responsibility] |
+| Mihanyo     | `hoanpro453@gmail.com`        |
